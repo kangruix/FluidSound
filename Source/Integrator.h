@@ -39,7 +39,10 @@ public:
         Fvals.head(n_total) *= 0.;
         for (int i = 0; i < n_coupled; ++i)
         {
-            Oscillator * osc = _coupled_osc[i];
+            if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
+            else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
+
+            /*Oscillator* osc = _coupled_osc[i];
             
             // Compute forcing term.  TODO: (Kangrui) consider factoring out / vectorizing
             int forceIdx = 0;
@@ -52,7 +55,9 @@ public:
                     break;
                 }
                 forceIdx++;
-            }
+            }*/
+
+            Fvals[i] /= pressures[i];
         }
         Fvals.head(n_total) *= Kvals.head(n_total);
         
@@ -72,6 +77,30 @@ public:
         {
             _Data1.col(i) = total_osc[i]->interp(time1);
             _Data2.col(i) = total_osc[i]->interp(time2);
+        }
+
+        _ft1.resize(n_coupled); _ft2.resize(n_coupled);
+        _forcing1.resize(n_coupled); _forcing2.resize(n_coupled);
+        for (int i = 0; i < n_coupled; i++)
+        {
+            for (int forceIdx = 0; forceIdx < total_osc[i]->m_forcing.size(); forceIdx++)
+            {
+                if (forceIdx == total_osc[i]->m_forcing.size() - 1)
+                {
+                    _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
+                    _ft2 = _ft1;
+                    _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                    _forcing2 = _forcing1;
+                }
+                else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
+                {
+                    _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
+                    _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
+                    _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                    _forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
+                    break;
+                }
+            }
         }
     }
     
@@ -102,6 +131,9 @@ protected:
 
     Eigen::MatrixXd _Data1, _Data2;
     double _time1 = -1., _time2 = -1.;
+
+    std::vector<double> _ft1, _ft2;
+    std::vector<std::shared_ptr<ForcingFunction>> _forcing1, _forcing2;
     
     Eigen::ArrayXd Kvals;
     Eigen::ArrayXd Cvals;
