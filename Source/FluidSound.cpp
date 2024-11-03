@@ -86,29 +86,23 @@ double Solver::step()
 
     std::vector<Oscillator<REAL>*> total_osc(_coupled_osc.begin(), _coupled_osc.end());
     total_osc.insert(total_osc.end(), _uncoupled_osc.begin(), _uncoupled_osc.end());
-    size_t num_total = total_osc.size();
+    size_t N_total = total_osc.size();
 
-    if (num_total == 0) { return 0.; }
-    if (num_total > 1024) { throw std::runtime_error("Too many bubbles for coupling!"); }
+    if (N_total == 0) { return 0.; }
+    if (N_total > 1024) { throw std::runtime_error("Too many bubbles for coupling!"); }
 
-    // Package all oscillator states into a single vector...
-    Eigen::ArrayXd curStates(2 * num_total);
-    for (int i = 0; i < num_total; i++)
-    {
-        curStates(i) = total_osc[i]->state(0);           // v - volume displacement
-        curStates(i + num_total) = total_osc[i]->state(1); // v'- volume velocity
-    }
-    curStates = _integrator->step(curStates, time, _dt);
 
-    // ...and unpackage vector to update Oscillator states accordingly
+    _integrator->step(time);
+
+    // Unpack _integrator->States() to update Oscillator states accordingly
     double total_response = 0.0;
-    for (int i = 0; i < num_total; i++)
+    for (int i = 0; i < N_total; i++)
     {
-        total_osc[i]->state(0) = curStates(i);
-        total_osc[i]->state(1) = curStates(i + num_total);
+        total_osc[i]->state(0) = _integrator->States()(i);
+        total_osc[i]->state(1) = _integrator->States()(i + N_total);
 
-        total_osc[i]->accel = _integrator->Derivs()(i + num_total);
-        total_response += _integrator->Derivs()(i + num_total);
+        total_osc[i]->accel = _integrator->Derivs()(i + N_total);
+        total_response += total_osc[i]->accel;
     }
     if (std::abs(total_response) > 100.) { throw std::runtime_error("Instability detected!"); }
 

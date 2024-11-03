@@ -7,6 +7,124 @@
 
 namespace FluidSound {
 
+/**  */
+void Integrator::step(double time)
+{
+    Eigen::ArrayX<REAL> k1 = solve(_States, time);
+    Eigen::ArrayX<REAL> k2 = solve(_States + _dt / 2. * k1, time + _dt / 2.);
+    Eigen::ArrayX<REAL> k3 = solve(_States + _dt / 2. * k2, time + _dt / 2.);
+    Eigen::ArrayX<REAL> k4 = solve(_States + _dt * k3, time + _dt);
+
+    _Derivs = (k1 + 2. * k2 + 2. * k3 + k4) / 6.;
+    _States += _dt * _Derivs;
+}
+
+/** */
+void Integrator::updateData(const std::vector<Oscillator<REAL>*>& coupled_osc, const std::vector<Oscillator<REAL>*>& uncoupled_osc,
+    double time1, double time2)
+{ 
+    std::vector<Oscillator<REAL>*> total_osc(coupled_osc.begin(), coupled_osc.end());
+    total_osc.insert(total_osc.end(), uncoupled_osc.begin(), uncoupled_osc.end());
+        
+    _N_coupled = coupled_osc.size(); _N_total = total_osc.size();
+    _t1 = time1; _t2 = time2;
+
+    _solveData1.resize(7, _N_total); _solveData2.resize(7, _N_total);
+    for (int i = 0; i < _N_total; i++)
+    {
+        _solveData1.col(i) = total_osc[i]->interp(time1);
+        _solveData2.col(i) = total_osc[i]->interp(time2);
+    }
+
+    _ft1.resize(_N_coupled); _ft2.resize(_N_coupled);
+    _forcing1.resize(_N_coupled); _forcing2.resize(_N_coupled);
+    _forceData1.resize(_N_coupled); _forceData2.resize(_N_coupled);
+    for (int i = 0; i < _N_coupled; i++)
+    {
+        for (int forceIdx = 0; forceIdx < total_osc[i]->m_forcing.size(); forceIdx++)
+        {
+            if (forceIdx == total_osc[i]->m_forcing.size() - 1)
+            {
+                _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
+                _ft2[i] = _ft1[i];
+                std::pair<double, double> forcePair(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                    total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                _forceData1[i] = forcePair;
+                _forceData2[i] = _forceData1[i];
+                _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                _forcing2[i] = _forcing1[i];
+            }
+            else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
+            {
+                _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
+                _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
+                std::pair<double, double> forcePair1(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                    total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                std::pair<double, double> forcePair2(total_osc[i]->m_forcing[forceIdx + 1].second->m_cutoff,
+                    total_osc[i]->m_forcing[forceIdx + 1].second->m_weight);
+                _forceData1[i] = forcePair1;
+                _forceData2[i] = forcePair2;
+                _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                _forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
+                break;
+            }
+        }
+    }
+
+    _States.resize(2 * _N_total);
+    for (int i = 0; i < _N_total; i++)
+    {
+        _States(i) = total_osc[i]->state(0);            // v - volume displacement
+        _States(i + _N_total) = total_osc[i]->state(1); // v'- volume velocity
+    }
+    _Derivs.resize(2 * _N_total);
+}
+
+/** */
+void Integrator::computeKCF(double time)
+{
+    auto coeff_start = std::chrono::steady_clock::now();
+
+    double alpha = (time - _t1) / (_t2 - _t1);
+
+    Eigen::ArrayX<REAL> w0 = (1. - alpha) * _solveData1.row(1) + (alpha)*_solveData2.row(1);
+    Kvals = w0 * w0;
+
+    Cvals = (1. - alpha) * _solveData1.row(6) + (alpha)*_solveData2.row(6);
+
+    //Eigen::ArrayXd pressures = (1. - alpha) * _solveData1.row(5) + (alpha) * _solveData2.row(5);
+    Fvals = Eigen::ArrayX<REAL>::Zero(_N_total);
+    for (int i = 0; i < _N_coupled; i++)
+    {
+        //if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
+        //else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
+
+        if (time > _ft2[i])
+        {
+            double cutoff = _forceData2[i].first;
+            double weight = _forceData2[i].second;
+            double t = time - _ft2[i];
+
+            Fvals[i] = (t < cutoff) * weight * t * t;
+        }
+        else
+        {
+            double cutoff = _forceData1[i].first;
+            double weight = _forceData1[i].second;
+            double t = time - _ft1[i];
+
+            Fvals[i] = (t < cutoff) * weight * t * t;
+        }
+        //Fvals[i] /= pressures[i];
+    }
+    //Fvals.head(_N_total) *= Kvals.head(_N_total);
+
+    auto coeff_end = std::chrono::steady_clock::now();
+    coeff_time += coeff_end - coeff_start;
+}
+
+
+
 
 /**  */
 void Coupled_Direct::_constructMass(double time)
@@ -67,14 +185,28 @@ Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, dou
     _radii = (1. - alpha) * _solveData1.row(0) + alpha * _solveData2.row(0);
 
     // solve for y'' | My'' = (F/sqrt(r) - Cy' - Ky)
-    _RHS.head(_N_total) = (Fvals.head(_N_total) - Cvals.head(_N_total) * States.segment(_N_total, _N_total) -
-        Kvals.head(_N_total) * States.segment(0, _N_total)) / _radii.head(_N_total).sqrt();
+    _RHS = (Fvals - Cvals * States.segment(_N_total, _N_total) - Kvals * States.segment(0, _N_total)) / _radii.sqrt();
 
-    _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled))
-        + alpha * _factor2.solve(_RHS.head(_N_coupled));
+    _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled)) + alpha * _factor2.solve(_RHS.head(_N_coupled));
 
     _Derivs.segment(0, _N_total) = States.segment(_N_total, _N_total);
-    _Derivs.segment(_N_total, _N_total) = _RHS.head(_N_total).array() * _radii.head(_N_total).sqrt();
+    _Derivs.segment(_N_total, _N_total) = _RHS.array() * _radii.sqrt();
+
+    auto solve_end = std::chrono::steady_clock::now();
+    solve_time += solve_end - solve_start;
+
+    return _Derivs;
+}
+
+/** */
+Eigen::ArrayX<REAL> Uncoupled::solve(const Eigen::ArrayX<REAL>& States, double time)
+{
+    computeKCF(time);
+
+    auto solve_start = std::chrono::steady_clock::now();
+
+    _Derivs.segment(0, _N_total) = States.segment(_N_total, _N_total);
+    _Derivs.segment(_N_total, _N_total) = Fvals - Cvals * States.segment(_N_total, _N_total) - Kvals * States.segment(0, _N_total);
 
     auto solve_end = std::chrono::steady_clock::now();
     solve_time += solve_end - solve_start;
