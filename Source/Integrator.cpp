@@ -27,10 +27,12 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
 { 
     std::vector<Oscillator<T>*> total_osc(coupled_osc.begin(), coupled_osc.end());
     total_osc.insert(total_osc.end(), uncoupled_osc.begin(), uncoupled_osc.end());
-        
+    
+    //
     _N_coupled = coupled_osc.size(); _N_total = total_osc.size();
     _t1 = time1; _t2 = time2;
 
+    //
     _solveData1.resize(6, _N_total); _solveData2.resize(6, _N_total);
     for (int i = 0; i < _N_total; i++)
     {
@@ -38,30 +40,27 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
         _solveData2.col(i) = total_osc[i]->interp(time2);
     }
 
-    _ft1.resize(_N_coupled); _ft2.resize(_N_coupled);
-    _forceData1.resize(_N_coupled); _forceData2.resize(_N_coupled);
+    //
+    _forceData1.resize(3, _N_coupled); _forceData2.resize(3, _N_coupled);
     for (int i = 0; i < _N_coupled; i++)
     {
-        for (int forceIdx = 0; forceIdx < total_osc[i]->m_forcing.size(); forceIdx++)
+        for (int forceIdx = 0; forceIdx < total_osc[i]->forceData.cols(); forceIdx++)
         {
-            if (forceIdx == total_osc[i]->m_forcing.size() - 1)
+            if (forceIdx == total_osc[i]->forceData.cols() - 1)
             {
-                _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
-                _ft2[i] = _ft1[i];
-                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                _forceData2[i] = _forceData1[i];
+                _forceData1.col(i) = total_osc[i]->forceData.col(forceIdx);
+                _forceData2.col(i) = _forceData1.col(i);
             }
-            else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
+            else if (time1 < total_osc[i]->forceData(0, forceIdx + 1))
             {
-                _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
-                _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
-                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                _forceData2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
+                _forceData1.col(i) = total_osc[i]->forceData.col(forceIdx);
+                _forceData2.col(i) = total_osc[i]->forceData.col(forceIdx + 1);
                 break;
             }
         }
     }
 
+    //
     _States.resize(2 * _N_total);
     for (int i = 0; i < _N_total; i++)
     {
@@ -79,29 +78,30 @@ void Integrator<T>::computeKCF(double time)
 
     double alpha = (time - _t1) / (_t2 - _t1);
 
+    //
     Eigen::ArrayX<T> w0 = (1. - alpha) * _solveData1.row(1) + alpha * _solveData2.row(1);
-    Kvals = w0 * w0;
+    _Kvals = w0 * w0;
 
-    Cvals = (1. - alpha) * _solveData1.row(5) + alpha * _solveData2.row(5);
+    //
+    _Cvals = (1. - alpha) * _solveData1.row(5) + alpha * _solveData2.row(5);
 
-    Fvals = Eigen::ArrayX<T>::Zero(_N_total);
+    //
+    _Fvals = Eigen::ArrayX<T>::Zero(_N_total);
     for (int i = 0; i < _N_coupled; i++)
     {
-        if (time > _ft2[i])
+        if (time > _forceData2(0, i))
         {
-            double cutoff = _forceData2[i].first;
-            double weight = _forceData2[i].second;
-            double t = time - _ft2[i];
-
-            Fvals[i] = (t < cutoff) * weight * t * t;
+            T cutoff = _forceData2(1, i);
+            T weight = _forceData2(2, i);
+            T t = time - _forceData2(0, i);
+            _Fvals[i] = (t < cutoff) * weight * t * t;
         }
         else
         {
-            double cutoff = _forceData1[i].first;
-            double weight = _forceData1[i].second;
-            double t = time - _ft1[i];
-
-            Fvals[i] = (t < cutoff) * weight * t * t;
+            T cutoff = _forceData1(1, i);
+            T weight = _forceData1(2, i);
+            T t = time - _forceData1(0, i);
+            _Fvals[i] = (t < cutoff) * weight * t * t;
         }
     }
 
@@ -127,7 +127,7 @@ void Coupled_Direct<T>::_constructMass(double time)
 
     _radii = (1. - alpha) * _solveData1.row(0) + alpha * _solveData2.row(0);
 
-    // dense, symmetric mass matrix M
+    // Dense, symmetric mass matrix M
     _M.resize(_N_coupled, _N_coupled);
     for (int i = 0; i < _N_coupled; ++i)
     {
@@ -175,11 +175,11 @@ Eigen::ArrayX<T> Coupled_Direct<T>::solve(const Eigen::ArrayX<T>& States, double
     _radii = (1. - alpha) * _solveData1.row(0) + alpha * _solveData2.row(0);
 
     // solve for y'' | My'' = (F/sqrt(r) - Cy' - Ky)
-    _RHS = (Fvals - Cvals * States.segment(_N_total, _N_total) - Kvals * States.segment(0, _N_total)) / _radii.sqrt();
+    _RHS = (_Fvals - _Cvals * States.segment(_N_total, _N_total) - _Kvals * States.segment(0, _N_total)) / _radii.sqrt();
     _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled)) + alpha * _factor2.solve(_RHS.head(_N_coupled));
 
-    /*_RHS.head(_N_total) = (Fvals.head(_N_total) - Cvals.head(_N_total) * States.segment(_N_total, _N_total) -
-        Kvals.head(_N_total) * States.segment(0, _N_total)) / _radii.head(_N_total).sqrt();
+    /*_RHS.head(_N_total) = (_Fvals.head(_N_total) - _Cvals.head(_N_total) * States.segment(_N_total, _N_total) -
+        _Kvals.head(_N_total) * States.segment(0, _N_total)) / _radii.head(_N_total).sqrt();
     _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled))
         + alpha * _factor2.solve(_RHS.head(_N_coupled));*/
 
@@ -205,7 +205,7 @@ Eigen::ArrayX<T> Uncoupled<T>::solve(const Eigen::ArrayX<T>& States, double time
     auto solve_start = std::chrono::steady_clock::now();
 
     _Derivs.segment(0, _N_total) = States.segment(_N_total, _N_total);
-    _Derivs.segment(_N_total, _N_total) = Fvals - Cvals * States.segment(_N_total, _N_total) - Kvals * States.segment(0, _N_total);
+    _Derivs.segment(_N_total, _N_total) = _Fvals - _Cvals * States.segment(_N_total, _N_total) - _Kvals * States.segment(0, _N_total);
 
     auto solve_end = std::chrono::steady_clock::now();
     solve_time += solve_end - solve_start;

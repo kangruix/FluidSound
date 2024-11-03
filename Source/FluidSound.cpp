@@ -131,6 +131,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
         osc.startTime = curBub->startTime;
         std::vector<double> solveTimes;
         std::vector<T> radii, wfreqs, x, y, z, Cvals;
+        std::vector<T> forceTimes, cutoffs, weights;
 
         double prevStartTime = -1.;
         while (true)
@@ -207,7 +208,9 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             {
                 force = Oscillator<double>::_CzerskiJetForcing(curBub->radius);
             }
-            osc.m_forcing.push_back(std::make_pair(curBub->startTime, force));
+            forceTimes.push_back(curBub->startTime);
+            cutoffs.push_back(force.first);
+            weights.push_back(force.second);
 
 
             // ----- Handle bubble end event: chaining logic -----
@@ -273,6 +276,12 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
         osc.solveData.row(3) = Eigen::Map<Eigen::VectorX<T>>(y.data(), y.size());
         osc.solveData.row(4) = Eigen::Map<Eigen::VectorX<T>>(z.data(), z.size());
         osc.solveData.row(5) = Eigen::Map<Eigen::VectorX<T>>(Cvals.data(), Cvals.size());
+
+
+        osc.forceData.resize(3, forceTimes.size());
+        osc.forceData.row(0) = Eigen::Map<Eigen::VectorX<T>>(forceTimes.data(), forceTimes.size());
+        osc.forceData.row(1) = Eigen::Map<Eigen::VectorX<T>>(cutoffs.data(), cutoffs.size());
+        osc.forceData.row(2) = Eigen::Map<Eigen::VectorX<T>>(weights.data(), weights.size());
 
 
         // Finally, add this Oscillator

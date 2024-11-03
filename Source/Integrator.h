@@ -57,7 +57,7 @@ protected:
     int _N_total = 0;       //!< total number of Oscillators for the batch
 
     // 
-    Eigen::ArrayXd Kvals, Cvals, Fvals;
+    Eigen::ArrayXd _Kvals, _Cvals, _Fvals;
     void computeKCF(double time);
 
     Eigen::ArrayX<T> _States;    //!< packed state vectors [v v'] (over all active Oscillators)
@@ -69,10 +69,8 @@ protected:
     // Solve data (over all active Oscillators) at times '_t1' and '_t2'
     Eigen::Array<T, 6, Eigen::Dynamic> _solveData1, _solveData2;
 
-
-    std::vector<double> _ft1, _ft2;
-    std::vector<std::pair<double, double>> _forceData1, _forceData2;
-
+    // Force data
+    Eigen::Array<T, 3, Eigen::Dynamic> _forceData1, _forceData2;
 
 public:
     std::chrono::duration<double> coeff_time = std::chrono::duration<double>::zero();
@@ -101,8 +99,8 @@ private:
 
 #ifndef USE_CUDA
     // --- host (CPU) ---
-    Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
-    Eigen::ArrayXd _radii;
+    Eigen::Matrix<T, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
+    Eigen::ArrayX<T> _radii;
 
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> _M;
     Eigen::LLT<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
@@ -110,10 +108,10 @@ private:
 #else
     // --- device (GPU) ---
     Eigen::MatrixXd L1, L2;
-    double *d_cx, *d_cy, *d_cz, *d_r;
+    T *d_cx, *d_cy, *d_cz, *d_r;
 
-    double *d_M;
-    double *d_RHS;
+    T *d_M;
+    T *d_RHS;
 #endif
 };
 
@@ -127,7 +125,7 @@ class Uncoupled : public Integrator<T>
 public:
     Uncoupled(double dt) : Integrator<T>(dt) { }
     
-    void refactor() { }
+    void refactor() { }     // dummy function call
     Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time);
 };
 

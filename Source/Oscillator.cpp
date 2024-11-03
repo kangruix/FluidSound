@@ -9,15 +9,15 @@
 
 namespace FluidSound {
 
-static const REAL RHO_WATER = 998.;		// density of water
-static const REAL SIGMA = 0.0726;		// surface tension
-static const REAL GAMMA = 1.4;			// gas heat capacity ratio
-static const REAL MU = 8.9e-4;			// dynamic viscosity of water
-static const REAL GTH = 1.6e6;			// thermal damping constant
-static const REAL CF = 1497;			// speed of sound in water
-static const REAL G = 1.0;				// 
-static const REAL ATM = 101325;			// atmospheric pressure
-static const REAL ETA = 0.84;			// tan(40 degrees)
+static const double RHO_WATER = 998.;		// density of water
+static const double SIGMA = 0.0726;		// surface tension
+static const double GAMMA = 1.4;			// gas heat capacity ratio
+static const double MU = 8.9e-4;			// dynamic viscosity of water
+static const double GTH = 1.6e6;			// thermal damping constant
+static const double CF = 1497;			// speed of sound in water
+static const double G = 1.0;				// 
+static const double ATM = 101325;			// atmospheric pressure
+static const double ETA = 0.84;			// tan(40 degrees)
 
 static const double fTimeCutoff = 0.0006;
 

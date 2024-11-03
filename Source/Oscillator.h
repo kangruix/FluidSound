@@ -16,8 +16,6 @@
 
 namespace FluidSound {
 
-typedef double REAL;
-
 /**
  * \class Oscillator
  * \brief
@@ -39,10 +37,11 @@ struct Oscillator
     Eigen::Array<T, 6, Eigen::Dynamic> solveData;
     /* For times (0, ..., N), solveData is given by:
      *  [ radius(0) ... radius(N) ]
-     *  [ wfreqs(0) ... wfreqs(N) ]
+     *  [ wfreq(0)  ... wfreq(N)  ]
      *  [ x(0)      ... x(N)      ]
      *  [ y(0)      ... y(N)      ]
      *  [ z(0)      ... z(N)      ]
+     *  [ 2*beta(0) ... 2*beta(N) ]
      */
 
     /** \brief Returns array of linearly interpolated solve data at specified time */
@@ -64,16 +63,22 @@ struct Oscillator
     bool operator < (const Oscillator& osc) const { return startTime < osc.startTime; }
 
 
-    //std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
-    std::vector<std::pair<double, std::pair<T, T>>> m_forcing;
+    Eigen::Array<T, 3, Eigen::Dynamic> forceData;
+    /* For times (0, ..., F), forceData is given by:
+     *  [ startTime(0) ... startTime(F) ]
+     *  [ cutoff(0)    ... cutoff(F)    ]
+     *  [ weight(0)    ... weight(F)    ]
+     * 
+     * All forcing functions have the form F(t) = (t < cutoff) * weight * t * t
+     */
 
-    /** */
+    /** \brief TODO */
     static std::pair<T, T> _CzerskiJetForcing(T radius);
     
-    /** */
+    /** \brief TODO */
     static std::pair<T, T> _MergeForcing(T radius, T r1, T r2);
     
-    /** */
+    /** \brief TODO */
     static T calcBeta(T radius, T w0);
     
 private:
