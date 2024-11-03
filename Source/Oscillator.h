@@ -42,43 +42,58 @@ public:
 };
 
 
+/**
+ * @class Oscillator
+ * @brief
+ */
+template <typename T>
 struct Oscillator
 {
-    double m_startTime = -1.;
-    double m_endTime = -1.;
-    Eigen::Vector2d m_state = { 0., 0. }; // [v v']
-    double m_accel = 0.;
+    /** @brief vector of IDs of Bubbles belonging to this Oscillator, sorted by increasing start time */
+    std::vector<int> bubIDs;
 
-    Eigen::ArrayXd m_times;
-    Eigen::MatrixXd m_data;
+    double startTime = -1.;
+    double endTime = -1.;
 
-    Eigen::ArrayXd interp(double time)
+    /** @brief current volume displacement and volume velocity state vector: [v v'] */
+    Eigen::Vector2<T> state = { 0., 0. };
+    T accel = 0.;   //<! @brief current volume acceleration: v''
+
+    std::vector<double> solveTimes;
+    Eigen::Array<T, 7, Eigen::Dynamic> solveData;
+    /* For times (0, ..., N), solveData is given by:
+     *  [ radius(0) ... radius(N) ]
+     *  [ wfreqs(0) ... wfreqs(N) ]
+     *  [ x(0)      ... x(N)      ]
+     *  [ y(0)      ... y(N)      ]
+     *  [ z(0)      ... z(N)      ]
+     */
+
+    /** @brief Returns array of linearly interpolated solve data at specified time */
+    Eigen::Array<T, 7, 1> interp(double time)
     {
-        size_t sz = m_times.size();
-        if (time >= m_times(sz - 1)) { return m_data.col(sz - 1); }
-        else if (time <= m_times(0)) { return m_data.col(0); }
-        while (time < m_times(m_idx)) { --m_idx; }
-        while (m_idx < sz - 1 && time > m_times(m_idx + 1)) { ++m_idx; }
+        if (time >= solveTimes.back()) { return solveData.col(solveTimes.size() - 1); }
+        else if (time <= solveTimes[0]) { return solveData.col(0); }
 
-        double alpha = (time - m_times(m_idx)) / (m_times(m_idx + 1) - m_times(m_idx));
-        return (1. - alpha) * m_data.col(m_idx) + alpha * m_data.col(m_idx + 1);
-    }
-    bool is_dead() const { return m_state.norm() < 1e-10; }
-    void clear()
-    {
-        m_state.setZero(); m_accel = 0.;
-        m_times.resize(0); m_data.resize(0, 0);
-        m_forcing.clear();
-    }
-    bool operator < (const Oscillator& osc) const { return m_startTime < osc.m_startTime; }
+        while (time < solveTimes[_idx]) { _idx--; }
+        while (_idx < solveTimes.size() - 1 && time > solveTimes[_idx + 1]) { _idx++; }
 
-    std::vector<int> m_bubIDs;
+        double alpha = (time - solveTimes[_idx]) / (solveTimes[_idx + 1] - solveTimes[_idx]);
+        return (1. - alpha) * solveData.col(_idx) + alpha * solveData.col(_idx + 1);
+    }
+
+    /** @brief Returns true if this Oscillator has decayed sufficiently */
+    bool is_dead() const { return state.norm() < 1e-10; }
+    
+    bool operator < (const Oscillator& osc) const { return startTime < osc.startTime; }
+
+
     std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
 
     
 
 private:
-    int m_idx = 0;
+    int _idx = 0;
 };
 
 
@@ -337,7 +352,7 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
     return forcing;
 }
 
-//##############################################################################
+
 static double calcBeta(double radius, double w0)
 {
     double dr = w0 * radius / CF;

@@ -20,8 +20,8 @@ Solver::Solver(const std::string &bubFile, double dt, int scheme) : _dt(dt)
     
     switch (scheme)
     {
-        case 1: _integrator = new Coupled_Direct(_uncoupled_osc, _coupled_osc); break;
-        default: _integrator = new Uncoupled(_uncoupled_osc, _coupled_osc); break;
+        case 1: _integrator = new Coupled_Direct(dt); break;
+        default: _integrator = new Uncoupled(dt); break;
     }
 }
 
@@ -38,9 +38,9 @@ double Solver::step()
             // 1. Check if any Oscillators have ended by 'time1'. We then uncouple them and
             //    continue timestepping to avoid discontinuities.
             int coupled_idx = 0;
-            for (Oscillator* osc : _coupled_osc)
+            for (Oscillator<REAL>* osc : _coupled_osc)
             {
-                if (time1 >= osc->m_endTime)
+                if (time1 >= osc->endTime)
                 {
                     _uncoupled_osc.push_back(osc);
                     continue;
@@ -53,11 +53,10 @@ double Solver::step()
             // 2. Of uncoupled Oscillators, check if any have decayed sufficiently by 'time1'.
             //    These Oscillators are finally removed.
             int uncoupled_idx = 0;
-            for (Oscillator* osc : _uncoupled_osc)
+            for (Oscillator<REAL>* osc : _uncoupled_osc)
             {
                 if (osc->is_dead())
                 {
-                    osc->clear();
                     continue;
                 }
                 _uncoupled_osc[uncoupled_idx] = osc;
@@ -67,25 +66,25 @@ double Solver::step()
 
             // 3. Check if any Oscillators will start between 'time1' and 'time2'. NOTE: '_oscillators'
             //    sorted by increasing 'm_startTime'.
-            while (_osID < _oscillators.size() && time >= _oscillators[_osID].m_startTime && 
-                   _oscillators[_osID].m_startTime < time2)
+            while (_osID < _oscillators.size() && time >= _oscillators[_osID].startTime && 
+                   _oscillators[_osID].startTime < time2)
             {
-                Oscillator* osc = &(_oscillators[_osID]);
-                if (time1 < osc->m_endTime)
+                Oscillator<REAL>* osc = &(_oscillators[_osID]);
+                if (time1 < osc->endTime)
                 {
                     _coupled_osc.push_back(osc);
                 }
                 _osID += 1;
             }
 
-            _integrator->updateData(time1, time2);
+            _integrator->updateData(_coupled_osc, _uncoupled_osc, time1, time2);
             _integrator->refactor();
         }
         _evID += 1;
     }
     _step += 1;
 
-    std::vector<Oscillator*> total_osc(_coupled_osc.begin(), _coupled_osc.end());
+    std::vector<Oscillator<REAL>*> total_osc(_coupled_osc.begin(), _coupled_osc.end());
     total_osc.insert(total_osc.end(), _uncoupled_osc.begin(), _uncoupled_osc.end());
     size_t num_total = total_osc.size();
 
@@ -96,8 +95,8 @@ double Solver::step()
     Eigen::ArrayXd curStates(2 * num_total);
     for (int i = 0; i < num_total; i++)
     {
-        curStates(i) = total_osc[i]->m_state(0);           // v - volume displacement
-        curStates(i + num_total) = total_osc[i]->m_state(1); // v'- volume velocity
+        curStates(i) = total_osc[i]->state(0);           // v - volume displacement
+        curStates(i + num_total) = total_osc[i]->state(1); // v'- volume velocity
     }
     curStates = _integrator->step(curStates, time, _dt);
 
@@ -105,11 +104,11 @@ double Solver::step()
     double total_response = 0.0;
     for (int i = 0; i < num_total; i++)
     {
-        total_osc[i]->m_state(0) = curStates(i);
-        total_osc[i]->m_state(1) = curStates(i + num_total);
+        total_osc[i]->state(0) = curStates(i);
+        total_osc[i]->state(1) = curStates(i + num_total);
 
-        total_osc[i]->m_accel = _integrator->curDeriv(i + num_total);
-        total_response += _integrator->curDeriv(i + num_total);
+        total_osc[i]->accel = _integrator->Derivs()(i + num_total);
+        total_response += _integrator->Derivs()(i + num_total);
     }
     if (std::abs(total_response) > 100.) { throw std::runtime_error("Instability detected!"); }
 
@@ -135,8 +134,8 @@ void Solver::_makeOscillators(const std::map<int, Bubble<double>> &bubMap)
         int curBubID = bubPair.first;
         const Bubble<REAL> * curBub = &bubPair.second;
 
-        Oscillator osc;
-        osc.m_startTime = curBub->startTime;
+        Oscillator<REAL> osc;
+        osc.startTime = curBub->startTime;
         std::vector<double> solveTimes;
         std::vector<REAL> radii, wfreqs, x, y, z, pressures, Cvals;
 
@@ -155,7 +154,7 @@ void Solver::_makeOscillators(const std::map<int, Bubble<double>> &bubMap)
             z.insert(z.end(), curBub->z.begin(), curBub->z.end());
             pressures.insert(pressures.end(), curBub->pressures.begin(), curBub->pressures.end());
 
-            osc.m_bubIDs.push_back(curBubID);
+            osc.bubIDs.push_back(curBubID);
             
             // Filter forcing events: only use this one if it's as least 1ms since the last one
             //if (curBub->m_startTime - prevStartTime > 0.001)
@@ -203,36 +202,38 @@ void Solver::_makeOscillators(const std::map<int, Bubble<double>> &bubMap)
             }
             if (lastBub) { break; }
         }
+        // End this Oscillator; next, we decide whether or not to keep it
+        osc.endTime = curBub->endTime;
 
+        // Filter out if there is not enough solve data
+        if (solveTimes.size() < 1) { continue; }
+        // Filter out high freqency Oscillators
+        if (*std::max_element(wfreqs.begin(), wfreqs.end()) > 2 * M_PI * 18000.) { continue; }
+        // Filter out short blips
+        if (osc.endTime - osc.startTime < 3 * 2 * M_PI / wfreqs[0]) { continue; }
+
+
+        // Transfer solve data from temporary buffers to this Oscillator
         for (int i = 0; i < solveTimes.size(); i++)
         {
             Cvals.push_back(2. * calcBeta(radii[i], wfreqs[i]));
-            //pressures[i] *= GAMMA / (4./3. * M_PI * std::pow(r[i], 3));  // TODO: why divide by volume?
         }
-        osc.m_times = Eigen::Map<Eigen::VectorXd> (solveTimes.data(), solveTimes.size());
-        osc.m_data.resize(7, solveTimes.size());
-        
-        osc.m_data.row(0) = Eigen::Map<Eigen::VectorXd> (radii.data(), radii.size());
-        osc.m_data.row(1) = Eigen::Map<Eigen::VectorXd> (wfreqs.data(), wfreqs.size());
-        osc.m_data.row(2) = Eigen::Map<Eigen::VectorXd> (x.data(), x.size());
-        osc.m_data.row(3) = Eigen::Map<Eigen::VectorXd> (y.data(), y.size());
-        osc.m_data.row(4) = Eigen::Map<Eigen::VectorXd> (z.data(), z.size());
-        osc.m_data.row(5) = Eigen::Map<Eigen::VectorXd> (pressures.data(), pressures.size());
-        osc.m_data.row(6) = Eigen::Map<Eigen::VectorXd> (Cvals.data(), Cvals.size());
+        osc.solveTimes = solveTimes;
+        osc.solveData.resize(7, solveTimes.size());
 
-        // End this oscillator
-        osc.m_endTime = curBub->endTime;
-        
-        // Skip if there are not enough frequency solves
-        if (solveTimes.size() < 1) { continue; }
-        // Skip high frequency bubbles
-        if (osc.m_data.row(1).maxCoeff() > 18000.0 * 2 * M_PI) { continue; }
-        // Skip short blips
-        if (osc.m_endTime - osc.m_startTime < 3 * 2 * M_PI / wfreqs[0]) { continue; }
+        osc.solveData.row(0) = Eigen::Map<Eigen::VectorX<REAL>>(radii.data(), radii.size());
+        osc.solveData.row(1) = Eigen::Map<Eigen::VectorX<REAL>>(wfreqs.data(), wfreqs.size());
+        osc.solveData.row(2) = Eigen::Map<Eigen::VectorX<REAL>>(x.data(), x.size());
+        osc.solveData.row(3) = Eigen::Map<Eigen::VectorX<REAL>>(y.data(), y.size());
+        osc.solveData.row(4) = Eigen::Map<Eigen::VectorX<REAL>>(z.data(), z.size());
+        osc.solveData.row(5) = Eigen::Map<Eigen::VectorX<REAL>>(pressures.data(), pressures.size());
+        osc.solveData.row(6) = Eigen::Map<Eigen::VectorX<REAL>>(Cvals.data(), Cvals.size());
 
+
+        // Finally, add this Oscillator
         _oscillators.push_back(osc);
-        eventTimesSet.insert(osc.m_startTime);
-        eventTimesSet.insert(osc.m_endTime);
+        eventTimesSet.insert(osc.startTime);
+        eventTimesSet.insert(osc.endTime);
         
     } // END for (const std::pair<int, Bubble>& bubPair : bubMap)
 

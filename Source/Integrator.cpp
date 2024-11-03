@@ -8,8 +8,7 @@
 namespace FluidSound {
 
 //##############################################################################
-Coupled_Direct::Coupled_Direct(std::vector<Oscillator*>& uncoupled_osc, std::vector<Oscillator*>& coupled_osc)
-    : Integrator(uncoupled_osc, coupled_osc)
+Coupled_Direct::Coupled_Direct(double dt) : Integrator(dt)
 {
     RHS.resize(1024);
 }
@@ -17,21 +16,21 @@ Coupled_Direct::Coupled_Direct(std::vector<Oscillator*>& uncoupled_osc, std::vec
 //##############################################################################
 void Coupled_Direct::constructMass(double time, double epsSq)
 {
-    double alpha = (time - _time1) / (_time2 - _time1);
+    double alpha = (time - _t1) / (_t2 - _t1);
 
     // Precompute bubble centers and radii
-    centers.resize(3, n_total);
-    centers.row(0) = (1. - alpha) * _Data1.row(2) + (alpha) * _Data2.row(2);  // x
-    centers.row(1) = (1. - alpha) * _Data1.row(3) + (alpha) * _Data2.row(3);  // y
-    centers.row(2) = (1. - alpha) * _Data1.row(4) + (alpha) * _Data2.row(4);  // z
-    radii.head(n_total) = (1. - alpha) * _Data1.row(0) + (alpha)*_Data2.row(0);
+    centers.resize(3, _N_total);
+    centers.row(0) = (1. - alpha) * _solveData1.row(2) + (alpha) * _solveData2.row(2);  // x
+    centers.row(1) = (1. - alpha) * _solveData1.row(3) + (alpha) * _solveData2.row(3);  // y
+    centers.row(2) = (1. - alpha) * _solveData1.row(4) + (alpha) * _solveData2.row(4);  // z
+    radii.head(_N_total) = (1. - alpha) * _solveData1.row(0) + alpha * _solveData2.row(0);
 
     // dense, symmetric mass matrix M
-    M.resize(n_coupled, n_coupled);
-    for (int i = 0; i < n_coupled; ++i)
+    M.resize(_N_coupled, _N_coupled);
+    for (int i = 0; i < _N_coupled; ++i)
     {
         double r_i = radii[i];
-        for (int j = i; j < n_coupled; ++j)
+        for (int j = i; j < _N_coupled; ++j)
         {
             if (i == j) { M(i, j) = 1.; } // diagonal entries
             else {
@@ -49,12 +48,12 @@ void Coupled_Direct::refactor()
 {
     auto mass_start = std::chrono::steady_clock::now();
     
-    constructMass(_time1, epsSq);
-    factor1.compute(M.topLeftCorner(n_coupled, n_coupled));
+    constructMass(_t1, epsSq);
+    factor1.compute(M.topLeftCorner(_N_coupled, _N_coupled));
     if (factor1.info() == Eigen::NumericalIssue) throw std::runtime_error("Possibly non positive definite matrix!");
     
-    constructMass(_time2, epsSq);
-    factor2.compute(M.topLeftCorner(n_coupled, n_coupled));
+    constructMass(_t2, epsSq);
+    factor2.compute(M.topLeftCorner(_N_coupled, _N_coupled));
     if (factor2.info() == Eigen::NumericalIssue) throw std::runtime_error("Possibly non positive definite matrix!");
     
     auto mass_end = std::chrono::steady_clock::now();
@@ -62,7 +61,6 @@ void Coupled_Direct::refactor()
 }
 
 
-//##############################################################################
 Eigen::ArrayXd Coupled_Direct::solve(const Eigen::ArrayXd& state, double time)
 {
     computeKCF(time);
@@ -70,20 +68,20 @@ Eigen::ArrayXd Coupled_Direct::solve(const Eigen::ArrayXd& state, double time)
     // solve for y'' | My'' = (F/sqrt(r) - Cy' - Ky)
     auto solve_start = std::chrono::steady_clock::now();
     
-    RHS.head(n_total) = (Fvals.head(n_total) - Cvals.head(n_total) * state.segment(n_total, n_total) -
-        Kvals.head(n_total) * state.segment(0, n_total)) / radii.head(n_total).sqrt();
+    RHS.head(_N_total) = (Fvals.head(_N_total) - Cvals.head(_N_total) * state.segment(_N_total, _N_total) -
+        Kvals.head(_N_total) * state.segment(0, _N_total)) / radii.head(_N_total).sqrt();
 
-    double alpha = (time - _time1) / (_time2 - _time1);
-    RHS.head(n_coupled) = (1. - alpha) * factor1.solve(RHS.head(n_coupled)) + (alpha)*factor2.solve(RHS.head(n_coupled));
+    double alpha = (time - _t1) / (_t2 - _t1);
+    RHS.head(_N_coupled) = (1. - alpha) * factor1.solve(RHS.head(_N_coupled)) + alpha * factor2.solve(RHS.head(_N_coupled));
 
-    curDeriv.resize(2 * n_total);
-    curDeriv.segment(0, n_total) = state.segment(n_total, n_total);
-    curDeriv.segment(n_total, n_total) = RHS.head(n_total).array() * radii.head(n_total).sqrt();
+    _Derivs.resize(2 * _N_total);
+    _Derivs.segment(0, _N_total) = state.segment(_N_total, _N_total);
+    _Derivs.segment(_N_total, _N_total) = RHS.head(_N_total).array() * radii.head(_N_total).sqrt();
     
     auto solve_end = std::chrono::steady_clock::now();
     solve_time += solve_end - solve_start;
     
-    return curDeriv;
+    return _Derivs;
 }
 
 } // namespace FluidSound

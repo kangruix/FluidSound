@@ -36,7 +36,7 @@ public:
     //void loadState(const std::string &stateFile);
     //void saveState(const std::string &stateFile);
 
-    std::vector<Oscillator>& oscillators() { return _oscillators; }
+    std::vector<Oscillator<REAL>>& oscillators() { return _oscillators; }
     const std::vector<double>& eventTimes() { return _eventTimes; }
 
     /** @brief Prints timings from _integrator */
@@ -55,9 +55,9 @@ private:
 
     Integrator* _integrator;
 
-    std::vector<Oscillator*> _uncoupled_osc, _coupled_osc;
+    std::vector<Oscillator<REAL>*> _uncoupled_osc, _coupled_osc;
 
-    std::vector<Oscillator> _oscillators;   //!< vector of ALL Oscillators, sorted by start time
+    std::vector<Oscillator<REAL>> _oscillators;   //!< vector of ALL Oscillators, sorted by start time
     int _osID = 0;  //!< current _oscillators index
 
     std::vector<double> _eventTimes;    //!< vector of sorted times for when to refactor the mass matrix

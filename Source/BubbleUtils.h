@@ -37,9 +37,9 @@ struct Bubble
     int bubID = -1;         //!< @brief global, unique ID
     T radius = 0.;          //!< @brief effective radius
 
-    double startTime; 
+    double startTime = -1.;
     EventType startType;    //!< @brief start event (entrain, merge, or split)
-    double endTime; 
+    double endTime = -1.; 
     EventType endType;      //!< @brief end event (merge, split, or collapse)
 
     /** @brief IDs of parent Bubbles that this Bubble merges or splits from */
