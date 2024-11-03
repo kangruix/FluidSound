@@ -1,6 +1,6 @@
 /** (c) 2024 Kangrui Xue
  *
- * @file BubbleUtils.cpp
+ * \file BubbleUtils.cpp
  */
 
 #include "BubbleUtils.h"

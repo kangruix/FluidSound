@@ -1,7 +1,7 @@
 /** (c) 2024 Kangrui Xue
  *
- * @file Oscillator.h
- * @brief
+ * \file Oscillator.h
+ * \brief
  */
 
 #ifndef _FS_OSCILLATOR_H
@@ -43,21 +43,21 @@ public:
 
 
 /**
- * @class Oscillator
- * @brief
+ * \class Oscillator
+ * \brief
  */
 template <typename T>
 struct Oscillator
 {
-    /** @brief vector of IDs of Bubbles belonging to this Oscillator, sorted by increasing start time */
+    /** \brief vector of IDs of Bubbles belonging to this Oscillator, sorted by increasing start time */
     std::vector<int> bubIDs;
 
     double startTime = -1.;
     double endTime = -1.;
 
-    /** @brief current volume displacement and volume velocity state vector: [v v'] */
+    /** \brief current volume displacement and volume velocity state vector: [v v'] */
     Eigen::Vector2<T> state = { 0., 0. };
-    T accel = 0.;   //<! @brief current volume acceleration: v''
+    T accel = 0.;   //<! \brief current volume acceleration: v''
 
     std::vector<double> solveTimes;
     Eigen::Array<T, 7, Eigen::Dynamic> solveData;
@@ -69,7 +69,7 @@ struct Oscillator
      *  [ z(0)      ... z(N)      ]
      */
 
-    /** @brief Returns array of linearly interpolated solve data at specified time */
+    /** \brief Returns array of linearly interpolated solve data at specified time */
     Eigen::Array<T, 7, 1> interp(double time)
     {
         if (time >= solveTimes.back()) { return solveData.col(solveTimes.size() - 1); }
@@ -82,13 +82,18 @@ struct Oscillator
         return (1. - alpha) * solveData.col(_idx) + alpha * solveData.col(_idx + 1);
     }
 
-    /** @brief Returns true if this Oscillator has decayed sufficiently */
+    /** \brief Returns true if this Oscillator has decayed sufficiently */
     bool is_dead() const { return state.norm() < 1e-10; }
     
     bool operator < (const Oscillator& osc) const { return startTime < osc.startTime; }
 
 
     std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
+
+
+    static std::pair<T, T> _CzerskiJetForcing(T radius);
+    static std::pair<T, T> _MergeForcing(T radius, T r1, T r2);
+    static T calcBeta(T radius, T w0);
 
     
 
@@ -105,7 +110,7 @@ static std::default_random_engine s_forcingRnd;
 static std::uniform_real_distribution<double> s_eta(0.4, 1.5);
 static std::uniform_real_distribution<double> s_frac(0.4, 0.8);
 
-//##############################################################################
+
 class CzerskiJetForcing : public ForcingFunction
 {
 public:
@@ -350,19 +355,6 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
     }
 
     return forcing;
-}
-
-
-static double calcBeta(double radius, double w0)
-{
-    double dr = w0 * radius / CF;
-    double dvis = 4 * MU / (RHO_WATER * w0 * radius * radius);
-    double phi = 16. * GTH * G / (9 * (GAMMA - 1) * (GAMMA - 1) * w0 / 2. / M_PI);
-    double dth = 2 * (std::sqrt(phi - 3) - (3 * GAMMA - 1) / (3 * (GAMMA - 1))) / (phi - 4);
-
-    double dtotal = dr + dvis + dth;
-
-    return w0 * dtotal / std::sqrt(dtotal * dtotal + 4);
 }
 
 } // namespace FluidSound

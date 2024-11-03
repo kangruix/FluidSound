@@ -1,6 +1,6 @@
 /** (c) 2024 Kangrui Xue
  *
- * @file main.cpp
+ * \file main.cpp
  */
 
 #include "FluidSound.h"
@@ -9,12 +9,12 @@
 void Run(const std::string& bubFile, int srate, int scheme)
 {
     double dt = 1. / srate;
-    FluidSound::Solver solver(bubFile, dt, scheme);
+    FluidSound::Solver<double> solver(bubFile, dt, scheme);
     std::ofstream out_file("output.txt");
 
     // Simulate from t = 0 to t = 'tf' seconds, logging sum of oscillators in "output.txt"
     int tdx = 0;
-    for (double t = 0.; t <= solver.eventTimes().back(); t += dt, ++tdx)
+    for (double t = 0.; t <= solver.eventTimes().back(); t += dt, tdx++)
     {
         out_file << solver.step() << std::endl;
         if (tdx % 9600 == 0) std::cout << "At time t = " << t << std::endl;

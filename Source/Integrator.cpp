@@ -1,6 +1,6 @@
 /** (c) 2024 Kangrui Xue
  *
- * @file Integrator.cpp
+ * \file Integrator.cpp
  */
 
 #include "Integrator.h"
@@ -8,22 +8,24 @@
 namespace FluidSound {
 
 /**  */
-void Integrator::step(double time)
+template <typename T>
+void Integrator<T>::step(double time)
 {
-    Eigen::ArrayX<REAL> k1 = solve(_States, time);
-    Eigen::ArrayX<REAL> k2 = solve(_States + _dt / 2. * k1, time + _dt / 2.);
-    Eigen::ArrayX<REAL> k3 = solve(_States + _dt / 2. * k2, time + _dt / 2.);
-    Eigen::ArrayX<REAL> k4 = solve(_States + _dt * k3, time + _dt);
+    Eigen::ArrayX<T> k1 = solve(_States, time);
+    Eigen::ArrayX<T> k2 = solve(_States + _dt / 2. * k1, time + _dt / 2.);
+    Eigen::ArrayX<T> k3 = solve(_States + _dt / 2. * k2, time + _dt / 2.);
+    Eigen::ArrayX<T> k4 = solve(_States + _dt * k3, time + _dt);
 
     _Derivs = (k1 + 2. * k2 + 2. * k3 + k4) / 6.;
     _States += _dt * _Derivs;
 }
 
 /** */
-void Integrator::updateData(const std::vector<Oscillator<REAL>*>& coupled_osc, const std::vector<Oscillator<REAL>*>& uncoupled_osc,
+template <typename T>
+void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, const std::vector<Oscillator<T>*>& uncoupled_osc,
     double time1, double time2)
 { 
-    std::vector<Oscillator<REAL>*> total_osc(coupled_osc.begin(), coupled_osc.end());
+    std::vector<Oscillator<T>*> total_osc(coupled_osc.begin(), coupled_osc.end());
     total_osc.insert(total_osc.end(), uncoupled_osc.begin(), uncoupled_osc.end());
         
     _N_coupled = coupled_osc.size(); _N_total = total_osc.size();
@@ -81,19 +83,28 @@ void Integrator::updateData(const std::vector<Oscillator<REAL>*>& coupled_osc, c
 }
 
 /** */
-void Integrator::computeKCF(double time)
+template <typename T>
+void Integrator<T>::computeKCF(double time)
 {
     auto coeff_start = std::chrono::steady_clock::now();
 
     double alpha = (time - _t1) / (_t2 - _t1);
 
-    Eigen::ArrayX<REAL> w0 = (1. - alpha) * _solveData1.row(1) + (alpha)*_solveData2.row(1);
+    Eigen::ArrayX<T> w0 = (1. - alpha) * _solveData1.row(1) + alpha * _solveData2.row(1);
     Kvals = w0 * w0;
 
-    Cvals = (1. - alpha) * _solveData1.row(6) + (alpha)*_solveData2.row(6);
+    Cvals = (1. - alpha) * _solveData1.row(6) + alpha * _solveData2.row(6);
+
+    Fvals = Eigen::ArrayX<T>::Zero(_N_total);
+
+    /*Kvals.head(_N_total) = (1. - alpha) * _solveData1.row(1) + alpha * _solveData2.row(1);
+    Kvals.head(_N_total) *= Kvals.head(_N_total);
+
+    Cvals.head(_N_total) = (1. - alpha) * _solveData1.row(6) + alpha * _solveData2.row(6);
+
+    Fvals.head(_N_total) *= 0.;*/
 
     //Eigen::ArrayXd pressures = (1. - alpha) * _solveData1.row(5) + (alpha) * _solveData2.row(5);
-    Fvals = Eigen::ArrayX<REAL>::Zero(_N_total);
     for (int i = 0; i < _N_coupled; i++)
     {
         //if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
@@ -123,11 +134,13 @@ void Integrator::computeKCF(double time)
     coeff_time += coeff_end - coeff_start;
 }
 
-
+//template class Integrator<float>;
+template class Integrator<double>;
 
 
 /**  */
-void Coupled_Direct::_constructMass(double time)
+template <typename T>
+void Coupled_Direct<T>::_constructMass(double time)
 {
     double alpha = (time - _t1) / (_t2 - _t1);
 
@@ -143,13 +156,13 @@ void Coupled_Direct::_constructMass(double time)
     _M.resize(_N_coupled, _N_coupled);
     for (int i = 0; i < _N_coupled; ++i)
     {
-        REAL r_i = _radii[i];
+        T r_i = _radii[i];
         for (int j = i; j < _N_coupled; ++j)
         {
             if (i == j) { _M(i, j) = 1.; } // diagonal entries
             else {
-                REAL r_j = _radii[j];
-                REAL distSq = (_centers.col(j) - _centers.col(i)).squaredNorm();
+                T r_j = _radii[j];
+                T distSq = (_centers.col(j) - _centers.col(i)).squaredNorm();
                 _M(i, j) = 1. / std::sqrt(distSq / (r_i * r_j) + _epsSq);
                 _M(j, i) = _M(i, j);
             }
@@ -158,7 +171,8 @@ void Coupled_Direct::_constructMass(double time)
 }
 
 /**  */
-void Coupled_Direct::refactor()
+template <typename T>
+void Coupled_Direct<T>::refactor()
 {
     auto mass_start = std::chrono::steady_clock::now();
 
@@ -175,7 +189,8 @@ void Coupled_Direct::refactor()
 }
 
 /** We re-use _Derivs to avoid having to allocate array memory */
-Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, double time)
+template <typename T>
+Eigen::ArrayX<T> Coupled_Direct<T>::solve(const Eigen::ArrayX<T>& States, double time)
 {
     computeKCF(time);
 
@@ -186,8 +201,12 @@ Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, dou
 
     // solve for y'' | My'' = (F/sqrt(r) - Cy' - Ky)
     _RHS = (Fvals - Cvals * States.segment(_N_total, _N_total) - Kvals * States.segment(0, _N_total)) / _radii.sqrt();
-
     _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled)) + alpha * _factor2.solve(_RHS.head(_N_coupled));
+
+    /*_RHS.head(_N_total) = (Fvals.head(_N_total) - Cvals.head(_N_total) * States.segment(_N_total, _N_total) -
+        Kvals.head(_N_total) * States.segment(0, _N_total)) / _radii.head(_N_total).sqrt();
+    _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled))
+        + alpha * _factor2.solve(_RHS.head(_N_coupled));*/
 
     _Derivs.segment(0, _N_total) = States.segment(_N_total, _N_total);
     _Derivs.segment(_N_total, _N_total) = _RHS.array() * _radii.sqrt();
@@ -198,8 +217,13 @@ Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, dou
     return _Derivs;
 }
 
+//template class Coupled_Direct<float>;
+template class Coupled_Direct<double>;
+
+
 /** */
-Eigen::ArrayX<REAL> Uncoupled::solve(const Eigen::ArrayX<REAL>& States, double time)
+template <typename T>
+Eigen::ArrayX<T> Uncoupled<T>::solve(const Eigen::ArrayX<T>& States, double time)
 {
     computeKCF(time);
 
@@ -213,5 +237,8 @@ Eigen::ArrayX<REAL> Uncoupled::solve(const Eigen::ArrayX<REAL>& States, double t
 
     return _Derivs;
 }
+
+//template class Uncoupled<float>;
+template class Uncoupled<double>;
 
 } // namespace FluidSound

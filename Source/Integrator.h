@@ -1,7 +1,7 @@
 /** (c) 2024 Kangrui Xue
  *
- * @file Integrator.h
- * @brief Defines classes for numerically integrating coupled (or uncoupled) Oscillator systems
+ * \file Integrator.h
+ * \brief Defines classes for numerically integrating coupled (or uncoupled) Oscillator systems
  */
 
 #ifndef _FS_INTEGRATOR_H
@@ -16,39 +16,40 @@
 namespace FluidSound {
 
 /**
- * @class Integrator
- * @brief Base RK4 integrator for the Oscillator system Mv''(t) + Cv'(t) + Kv(t) = F(t)
+ * \class Integrator
+ * \brief Base RK4 integrator for the Oscillator system Mv''(t) + Cv'(t) + Kv(t) = F(t)
  */
+template <typename T>
 class Integrator
 {
 public:
-    Integrator(double dt) : _dt(dt) { }
+    Integrator(double dt) : _dt(dt) { Kvals.resize(1024); Cvals.resize(1024); Fvals.resize(1024); }
      
-    /** @brief Takes an RK4 integration step */
+    /** \brief Takes an RK4 integration step */
     void step(double time);
 
     /**
-     * @brief Copies over all Oscillator data needed for the current integration batch. Must be called at start of batch.
-     * @param[in]  coupled_osc    Oscillators to treat as coupled
-     * @param[in]  uncoupled_osc  Oscillators to treat as uncoupled
-     * @param[in]  time1          integration batch start time
-     * @param[in]  time2          integration batch end time
+     * \brief Copies over all Oscillator data needed for the current integration batch. Must be called at start of batch.
+     * \param[in]  coupled_osc    Oscillators to treat as coupled
+     * \param[in]  uncoupled_osc  Oscillators to treat as uncoupled
+     * \param[in]  time1          integration batch start time
+     * \param[in]  time2          integration batch end time
      */
-    void updateData(const std::vector<Oscillator<REAL>*>& coupled_osc, const std::vector<Oscillator<REAL>*>& uncoupled_osc,
+    void updateData(const std::vector<Oscillator<T>*>& coupled_osc, const std::vector<Oscillator<T>*>& uncoupled_osc,
         double time1, double time2);
 
-    /** @brief Computes and factorizes mass matrix at batch endpoints _t1 and _t2 */
+    /** \brief Computes and factorizes mass matrix at batch endpoints _t1 and _t2 */
     virtual void refactor() = 0;
 
     /**
-     * @brief Solves for v''(t) = M^-1 ( F(t) - Cv'(t) - Kv(t) )
-     * @param[in]  State  packed state vectors [v v']
-     * @param[in]  time   solve time t (must satisfy _t1 <= t <= _t2)
+     * \brief Solves for v''(t) = M^-1 ( F(t) - Cv'(t) - Kv(t) )
+     * \param[in]  State  packed state vectors [v v']
+     * \param[in]  time   solve time t (must satisfy _t1 <= t <= _t2)
      */
-    virtual Eigen::ArrayX<REAL> solve(const Eigen::ArrayX<REAL>& State, double time) = 0;
+    virtual Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time) = 0;
     
-    const Eigen::ArrayX<REAL>& States() { return _States; }
-    const Eigen::ArrayX<REAL>& Derivs() { return _Derivs; }
+    const Eigen::ArrayX<T>& States() { return _States; }
+    const Eigen::ArrayX<T>& Derivs() { return _Derivs; }
 
 protected:
     double _dt = 0.;        //!< timestep size
@@ -59,14 +60,14 @@ protected:
     Eigen::ArrayXd Kvals, Cvals, Fvals;
     void computeKCF(double time);
 
-    Eigen::ArrayX<REAL> _States;    //!< packed state vectors [v v'] (over all active Oscillators)
-    Eigen::ArrayX<REAL> _Derivs;    //!< packed derivatives [v' v''] (over all active Oscillators)
+    Eigen::ArrayX<T> _States;    //!< packed state vectors [v v'] (over all active Oscillators)
+    Eigen::ArrayX<T> _Derivs;    //!< packed derivatives [v' v''] (over all active Oscillators)
 
     // Batch endpoint times
     double _t1 = -1., _t2 = -1.;
 
     // Solve data (over all active Oscillators) at times '_t1' and '_t2'
-    Eigen::Array<REAL, 7, Eigen::Dynamic> _solveData1, _solveData2;
+    Eigen::Array<T, 7, Eigen::Dynamic> _solveData1, _solveData2;
 
 
     std::vector<double> _ft1, _ft2;
@@ -81,27 +82,28 @@ public:
 };
 
 
-class Coupled_Direct : public Integrator
+template <typename T>
+class Coupled_Direct : public Integrator<T>
 {
 public:
     Coupled_Direct(double dt) : Integrator(dt) { _RHS.resize(1024); }
 
     void refactor();
-    Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, double time);
+    Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& States, double time);
     
 private:
-    const REAL _epsSq = 4.;  //!< regularization term
+    const T _epsSq = 4.;  //!< regularization term
 
-    /** @private */
+    /** \private */
     void _constructMass(double time);
 
     // --- host (CPU)
     Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
     Eigen::ArrayXd _radii;
 
-    Eigen::Matrix<REAL, Eigen::Dynamic, Eigen::Dynamic> _M;
-    Eigen::LLT<Eigen::Matrix<REAL, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
-    Eigen::Vector<REAL, Eigen::Dynamic> _RHS;
+    Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> _M;
+    Eigen::LLT<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
+    Eigen::Vector<T, Eigen::Dynamic> _RHS;
 
     // --- device (GPU)
     /*Eigen::MatrixXd L1, L2;
@@ -112,13 +114,14 @@ private:
 };
 
 
-class Uncoupled : public Integrator
+template <typename T>
+class Uncoupled : public Integrator<T>
 {
 public:
     Uncoupled(double dt) : Integrator(dt) { }
     
     void refactor() { }
-    Eigen::ArrayX<REAL> solve(const Eigen::ArrayX<REAL>& State, double time);
+    Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time);
 };
 
 } // namespace FluidSound
