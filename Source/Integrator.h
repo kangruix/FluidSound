@@ -1,5 +1,11 @@
-#ifndef _INTEGRATOR_H
-#define _INTEGRATOR_H
+/** (c) 2024 Kangrui Xue
+ *
+ * @file Integrator.h
+ * @brief Defines classes for numerically integrating coupled (or uncoupled) Oscillator systems
+ */
+
+#ifndef _FS_INTEGRATOR_H
+#define _FS_INTEGRATOR_H
 
 #include "Oscillator.h"
 #include <chrono>
@@ -230,4 +236,4 @@ private:
 
 } // namespace FluidSound
 
-#endif // _INTEGRATOR_H
+#endif // _FS_INTEGRATOR_H

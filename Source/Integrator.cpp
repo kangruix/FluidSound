@@ -1,3 +1,8 @@
+/** (c) 2024 Kangrui Xue
+ *
+ * @file Integrator.cpp
+ */
+
 #include "Integrator.h"
 
 namespace FluidSound {

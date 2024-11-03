@@ -1,9 +1,11 @@
-/*
- *  Oscillator.h
+/** (c) 2024 Kangrui Xue
+ *
+ * @file Oscillator.h
+ * @brief
  */
 
-#ifndef _OSCILLATOR_H
-#define _OSCILLATOR_H
+#ifndef _FS_OSCILLATOR_H
+#define _FS_OSCILLATOR_H
 
 
 #include <Eigen/Dense>
@@ -12,6 +14,8 @@
 
 
 namespace FluidSound {
+
+typedef double REAL;
 
 static const REAL RHO_WATER = 998.;		// density of water
 static const REAL SIGMA = 0.0726;		// surface tension
@@ -302,8 +306,8 @@ public:
 
 //##############################################################################
 static std::shared_ptr<ForcingFunction>
-makeForcingFunc(int curBubID, const Bubble& curBub,
-    const std::map<int, Bubble>& bubMap)
+makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
+    const std::map<int, Bubble<REAL>>& bubMap)
 {
     /*
      *    IN : curBubID:
@@ -313,27 +317,27 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
     std::shared_ptr<ForcingFunction> forcing;
 
     // If this bubble came from another bubble, set the state correctly
-    if (curBub.m_startType == Bubble::SPLIT)
+    if (curBub.startType == EventType::SPLIT)
     {
-        if (curBub.m_prevBubIDs.size() > 1)
+        if (curBub.prevBubIDs.size() > 1)
         {
             throw std::runtime_error("split from more than one bubble");
         }
 
-        int prevBub = curBub.m_prevBubIDs.at(0);
+        int prevBub = curBub.prevBubIDs.at(0);
         double minR = std::numeric_limits<double>::infinity();
         int minBub = -1;
 
         if (bubMap.count(prevBub))
         {
-            for (auto b : bubMap.at(prevBub).m_nextBubIDs)
+            for (auto b : bubMap.at(prevBub).nextBubIDs)
             {
-                minR = std::min(minR, bubMap.at(b).m_radius);
+                minR = std::min(minR, bubMap.at(b).radius);
                 minBub = b; // TODO: (Kangrui) minBub not doing anything different?
             }
         }
 
-        if (bubMap.at(prevBub).m_radius < curBub.m_radius)
+        if (bubMap.at(prevBub).radius < curBub.radius)
         {
             forcing.reset(new ZeroForcing());
         }
@@ -341,7 +345,7 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
         {
             if (curBubID == minBub) // TODO: (Kangrui) minBub not doing anything different?
             {
-                forcing.reset(new CzerskiJetForcing(curBub.m_radius,
+                forcing.reset(new CzerskiJetForcing(curBub.radius,
                     5000,
                     //curBub.m_endTime - curBub.m_startTime,
                     //std::min(curBub.m_endTime - curBub.m_startTime, 0.5 / (3.0 / minR)),
@@ -353,7 +357,7 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
             }
             else
             {
-                forcing.reset(new CzerskiJetForcing(curBub.m_radius,
+                forcing.reset(new CzerskiJetForcing(curBub.radius,
                     5000,
                     //curBub.m_endTime - curBub.m_startTime,
                     //std::min(curBub.m_endTime - curBub.m_startTime, 0.5 / (3.0 / minR)),
@@ -366,16 +370,16 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
         }
     } // END if (curBub.m_startType == Bubble::SPLIT))
 
-    else if (curBub.m_startType == Bubble::MERGE)
+    else if (curBub.startType == EventType::MERGE)
     {
-        if (curBub.m_prevBubIDs.size() < 2)
+        if (curBub.prevBubIDs.size() < 2)
         {
             //forcing.reset(new ZeroForcing());
             //return forcing;
             throw std::runtime_error("merged from less than two bubbles");
         }
 
-        if (curBub.m_prevBubIDs.size() > 2)
+        if (curBub.prevBubIDs.size() > 2)
         {
             forcing.reset(new ZeroForcing());
         }
@@ -386,32 +390,32 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
             // can merge with another one. This is probably just resolution and/or
             // bubble tracking issues
             bool allMerge = true;
-            for (auto p : curBub.m_prevBubIDs)
+            for (auto p : curBub.prevBubIDs)
             {
-                allMerge = allMerge && bubMap.at(p).m_endType == Bubble::MERGE;
+                allMerge = allMerge && bubMap.at(p).endType == EventType::MERGE;
             }
 
             if (allMerge)
             {
-                int p1 = curBub.m_prevBubIDs.at(0);
-                int p2 = curBub.m_prevBubIDs.at(1);
+                int p1 = curBub.prevBubIDs.at(0);
+                int p2 = curBub.prevBubIDs.at(1);
                 double r1 = 0, r2 = 0;
 
                 if (bubMap.count(p1) && bubMap.count(p2))
                 {
-                    r1 = bubMap.at(p1).m_radius;
-                    r2 = bubMap.at(p2).m_radius;
+                    r1 = bubMap.at(p1).radius;
+                    r2 = bubMap.at(p2).radius;
                 }
                 else
                 {
                     throw std::runtime_error("Missing parent");
                 }
 
-                if (r1 + r2 > curBub.m_radius)
+                if (r1 + r2 > curBub.radius)
                 {
                     double v1 = 4. / 3. * M_PI * r1 * r1 * r1;
                     double v2 = 4. / 3. * M_PI * r2 * r2 * r2;
-                    double vn = 4. / 3. * M_PI * curBub.m_radius * curBub.m_radius * curBub.m_radius;
+                    double vn = 4. / 3. * M_PI * curBub.radius * curBub.radius * curBub.radius;
 
                     double diff = v1 + v2 - vn;
 
@@ -434,7 +438,7 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
                         r1 = std::pow(3. / 4. / M_PI * v1, 1. / 3.);
                         r2 = std::pow(3. / 4. / M_PI * v2, 1. / 3.);
 
-                        forcing.reset(new MergeForcing(curBub.m_radius,
+                        forcing.reset(new MergeForcing(curBub.radius,
                             r1,
                             r2,
                             5000));
@@ -443,7 +447,7 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
                 }
                 else
                 {
-                    forcing.reset(new MergeForcing(curBub.m_radius,
+                    forcing.reset(new MergeForcing(curBub.radius,
                         r1,
                         r2,
                         5000));
@@ -457,9 +461,9 @@ makeForcingFunc(int curBubID, const Bubble& curBub,
         }
     } // END else if (curBub.m_startType == Bubble::MERGE)
 
-    else if (curBub.m_startType == Bubble::ENTRAIN)
+    else if (curBub.startType == EventType::ENTRAIN)
     {
-        forcing.reset(new CzerskiJetForcing(curBub.m_radius,
+        forcing.reset(new CzerskiJetForcing(curBub.radius,
             5000,
             //curBub.m_endTime - curBub.m_startTime,
             //ETA_ENTRAIN,
@@ -492,4 +496,4 @@ static double calcBeta(double radius, double w0)
 
 } // namespace FluidSound
 
-#endif // _OSCILLATOR_H
+#endif // _FS_OSCILLATOR_H
