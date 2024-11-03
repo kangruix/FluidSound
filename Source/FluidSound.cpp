@@ -4,7 +4,6 @@
  */
 
 #include "FluidSound.h"
-#include <iostream>
 
 namespace FluidSound {
 
@@ -26,12 +25,8 @@ Solver::Solver(const std::string &bubFile, double dt, int scheme) : _dt(dt)
     }
 }
 
-//##############################################################################
+/** */
 double Solver::step()
-/* Timesteps Oscillator vibrations.
- *    IN : time    : current sim time
- *    OUT: (return): sum of volume acceleration of all Oscillators
- */
 {
     double time = _dt * _step + 0.2;
     while (time >= _eventTimes[_evID])

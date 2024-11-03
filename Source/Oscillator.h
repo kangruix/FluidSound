@@ -8,9 +8,10 @@
 #define _FS_OSCILLATOR_H
 
 
-#include <Eigen/Dense>
-#include "BubbleUtils.h"
 #include <random>
+#include <Eigen/Dense>
+
+#include "BubbleUtils.h"
 
 
 namespace FluidSound {
@@ -27,8 +28,8 @@ static const REAL CA = 343;				// speed of sound in air
 static const REAL G = 1.0;				// 
 static const REAL ATM = 101325;			// atmospheric pressure
 static const REAL ETA = 0.84;			// tan(40 degrees)
-static const REAL ETA_SPLIT = 0.364;	// tan(20 degrees)
-static const REAL ETA_ENTRAIN = 1.732;	// tan(60 degrees)
+//static const REAL ETA_SPLIT = 0.364;	// tan(20 degrees)
+//static const REAL ETA_ENTRAIN = 1.732;	// tan(60 degrees)
 
 
 class ForcingFunction
@@ -42,12 +43,7 @@ public:
 };
 
 
-//##############################################################################
-// Class for tracking individual oscillators
-//##############################################################################
 class Oscillator
-    // Each Oscillator represents a single vibrating bubble at a given time.
-    // NOTE: for splitting/merging, instead of making a new oscillator, we "chain" the parent Bubble to the largest child Bubble (hence why each Oscillator can have multiple 'bubIDs')
 {
 public:
     Oscillator() { m_state.setZero(); }
@@ -88,11 +84,11 @@ private:
 };
 
 
+
+
 static const double fTimeCutoff = 0.0006;
 
 static std::default_random_engine s_forcingRnd;
-//static std::normal_distribution<double> s_eta(0.84, 0.2);
-//static std::normal_distribution<double> s_frac(0.64, 0.1);
 static std::uniform_real_distribution<double> s_eta(0.4, 1.5);
 static std::uniform_real_distribution<double> s_frac(0.4, 0.8);
 
@@ -140,83 +136,6 @@ public:
     {
         if (t > m_cutoff) { return 0.0; }
         return modulation(t) * m_weight * t * t;
-
-        //return fittedValue(t);
-        /*if (m_useLaplace)
-        {
-            return m_multiplier * (jetValue(t) - laplaceVal(t));
-        }
-        else
-        {
-            return m_multiplier * jetValue(t);
-        }*/
-
-        return jetValue(t);
-        //return gaussianValue(t);
-    }
-
-    double laplaceVal(double t) // Surface tension ("Laplace") pressure impulse, from Zheng 2009
-    {
-        if (m_useLaplace && !m_laplaceDone)
-        {
-            //m_laplaceDone = true;
-            return 2 * SIGMA / m_r;
-        }
-        return 0;
-    }
-
-    double jetValue(double t)
-    {
-        if (t > m_cutoff)
-        {
-            return 0.0;
-        }
-
-        double jval = m_weight * t * t;
-
-        if (m_useModulation)
-        {
-            return jval * modulation(t);
-        }
-        else
-        {
-            return jval;
-        }
-    }
-
-    double gaussianValue(double t)
-    {
-        double center = m_cutoff;
-        double mag = jetValue(center);
-        double stdDev = center / 3.0;
-
-        return mag * exp(-(t - center) * (t - center) / (2 * stdDev * stdDev));
-    }
-
-    double fittedValue(double t)
-    {
-        if (t > 0.05)
-        {
-            return 0;
-        }
-
-        double fittedR = m_r; //0.002;
-
-        double theta = 40 * M_PI / 180.0;
-        double pEq = ATM + 2 * SIGMA / fittedR;
-        double top = -9 * GAMMA * SIGMA * pEq * tan(theta) * tan(theta);
-        double bottom = 4 * RHO_WATER * RHO_WATER * pow(fittedR, 5) * sin(theta);
-
-        double jval = top / bottom * pow(t, 469.5 * t + 1.955);
-
-        // Convert to radius (instead of fractional radius)
-        jval *= fittedR;
-
-        // Convert to pressure
-        double mrp = RHO_WATER * fittedR;
-        jval *= mrp;
-
-        return jval;// *modulation(t);
     }
 
 private:
@@ -315,75 +234,25 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
      *    IN : bubMap  :
      */
     std::shared_ptr<ForcingFunction> forcing;
+    forcing.reset(new ZeroForcing());
 
     // If this bubble came from another bubble, set the state correctly
     if (curBub.startType == EventType::SPLIT)
     {
-        if (curBub.prevBubIDs.size() > 1)
-        {
-            throw std::runtime_error("split from more than one bubble");
-        }
-
         int prevBub = curBub.prevBubIDs.at(0);
-        double minR = std::numeric_limits<double>::infinity();
-        int minBub = -1;
-
-        if (bubMap.count(prevBub))
+        if (bubMap.at(prevBub).radius >= curBub.radius)
         {
-            for (auto b : bubMap.at(prevBub).nextBubIDs)
-            {
-                minR = std::min(minR, bubMap.at(b).radius);
-                minBub = b; // TODO: (Kangrui) minBub not doing anything different?
-            }
-        }
-
-        if (bubMap.at(prevBub).radius < curBub.radius)
-        {
-            forcing.reset(new ZeroForcing());
-        }
-        else
-        {
-            if (curBubID == minBub) // TODO: (Kangrui) minBub not doing anything different?
-            {
-                forcing.reset(new CzerskiJetForcing(curBub.radius,
-                    5000,
-                    //curBub.m_endTime - curBub.m_startTime,
-                    //std::min(curBub.m_endTime - curBub.m_startTime, 0.5 / (3.0 / minR)),
-                    //ETA_SPLIT,
-                    ETA,
-                    false,
-                    false));
-                //true));
-            }
-            else
-            {
-                forcing.reset(new CzerskiJetForcing(curBub.radius,
-                    5000,
-                    //curBub.m_endTime - curBub.m_startTime,
-                    //std::min(curBub.m_endTime - curBub.m_startTime, 0.5 / (3.0 / minR)),
-                    //ETA_SPLIT,
-                    ETA,
-                    false,
-                    false));
-                //true));
-            }
+            forcing.reset(new CzerskiJetForcing(curBub.radius,
+                5000,
+                ETA,
+                false,
+                false));
         }
     } // END if (curBub.m_startType == Bubble::SPLIT))
 
     else if (curBub.startType == EventType::MERGE)
     {
-        if (curBub.prevBubIDs.size() < 2)
-        {
-            //forcing.reset(new ZeroForcing());
-            //return forcing;
-            throw std::runtime_error("merged from less than two bubbles");
-        }
-
-        if (curBub.prevBubIDs.size() > 2)
-        {
-            forcing.reset(new ZeroForcing());
-        }
-        else
+        if (curBub.prevBubIDs.size() == 2)
         {
             // Make sure all parent bubbles merged completely with this one
             // Sometimes a bubble can split into two, and the smaller fragment
@@ -419,12 +288,7 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
 
                     double diff = v1 + v2 - vn;
 
-                    if (diff > std::max<double>(v1, v2))
-                    {
-                        // In this case both parent bubbles must have split off...
-                        forcing.reset(new ZeroForcing());
-                    }
-                    else
+                    if (diff <= std::max<double>(v1, v2))
                     {
                         if (v1 > v2)
                         {
@@ -454,10 +318,6 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
                     //curBub.m_endTime - curBub.m_startTime));
                 }
             }
-            else
-            {
-                forcing.reset(new ZeroForcing());
-            }
         }
     } // END else if (curBub.m_startType == Bubble::MERGE)
 
@@ -472,10 +332,6 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
             false,
             1));
         //forcing.reset(new ZeroForcing());
-    }
-    else
-    {
-        throw std::runtime_error("bad start event");
     }
 
     return forcing;
