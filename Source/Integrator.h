@@ -27,7 +27,6 @@ public:
         Kvals.resize(1024);
         Cvals.resize(1024);
         Fvals.resize(1024);
-        radii.resize(1024);
     }
     
     // Compute stiffness, damping, and forcing terms
@@ -37,12 +36,12 @@ public:
         
         double alpha = (time - _t1) / (_t2 - _t1);
 
-        radii.head(_N_total) = (1. - alpha) * _solveData1.row(0) + (alpha) * _solveData2.row(0);
-        Kvals.head(_N_total) = (1. - alpha) * _solveData1.row(1) + (alpha) * _solveData2.row(1);  // w0
-        Kvals.head(_N_total) *= Kvals.head(_N_total);  // K = w0*w0
+        Kvals.head(_N_total) = (1. - alpha) * _solveData1.row(1) + (alpha) * _solveData2.row(1);
+        Kvals.head(_N_total) *= Kvals.head(_N_total);
+        
         Cvals.head(_N_total) = (1. - alpha) * _solveData1.row(6) + (alpha) * _solveData2.row(6);
 
-        Eigen::ArrayXd pressures = (1. - alpha) * _solveData1.row(5) + (alpha) * _solveData2.row(5);
+        //Eigen::ArrayXd pressures = (1. - alpha) * _solveData1.row(5) + (alpha) * _solveData2.row(5);
         Fvals.head(_N_total) *= 0.;
         for (int i = 0; i < _N_coupled; i++)
         {
@@ -123,6 +122,8 @@ public:
                 }
             }
         }
+
+        _Derivs.resize(2 * _N_total);
     }
     
     virtual void refactor() = 0;
@@ -165,7 +166,6 @@ protected:
     Eigen::ArrayXd Kvals;
     Eigen::ArrayXd Cvals;
     Eigen::ArrayXd Fvals;
-    Eigen::ArrayXd radii;
 
 public:
     std::chrono::duration<double> coeff_time = std::chrono::duration<double>::zero();
@@ -177,36 +177,38 @@ public:
 class Coupled_Direct : public Integrator
 {
 public:
-    Coupled_Direct(double dt);
+    Coupled_Direct(double dt) : Integrator(dt) { _RHS.resize(1024); }
 
-    void constructMass(double time, double epsSq);
     void refactor();
-    Eigen::ArrayXd solve(const Eigen::ArrayXd& state, double time);
+    Eigen::ArrayX<REAL> Coupled_Direct::solve(const Eigen::ArrayX<REAL>& States, double time);
     
 private:
-    const double epsSq = 4.; // regularization term
+    const REAL _epsSq = 4.;  //!< regularization term
+
+    /** @private */
+    void _constructMass(double time);
 
     // --- host (CPU)
-    Eigen::LLT<Eigen::MatrixXd> factor1, factor2;
-    Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::RowMajor> centers;
+    Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
+    Eigen::ArrayXd _radii;
 
-    Eigen::MatrixXd M;
-    Eigen::VectorXd RHS;
+    Eigen::Matrix<REAL, Eigen::Dynamic, Eigen::Dynamic> _M;
+    Eigen::LLT<Eigen::Matrix<REAL, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
+    Eigen::Vector<REAL, Eigen::Dynamic> _RHS;
 
     // --- device (GPU)
-    Eigen::MatrixXd L1, L2;
+    /*Eigen::MatrixXd L1, L2;
     double *d_cx, *d_cy, *d_cz, *d_r;
 
     double *d_M;
-    double *d_RHS;
+    double *d_RHS;*/
 };
 
 
 class Uncoupled : public Integrator
 {
 public:
-    Uncoupled(double dt) : Integrator(dt)
-    { }
+    Uncoupled(double dt) : Integrator(dt) { }
     
     void refactor() { }
     Eigen::ArrayXd solve(const Eigen::ArrayXd &state, double time)
