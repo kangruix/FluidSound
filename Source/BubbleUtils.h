@@ -50,7 +50,7 @@ struct Bubble
     
     // solve data (NOTE: does not include Bubble start and end times)
     std::vector<double> solveTimes;
-    std::vector<T> wfreqs, x, y, z, pressures;
+    std::vector<T> wfreqs, x, y, z; //, pressures;
 
     bool hasSolveData() const { return !solveTimes.empty(); }
 };

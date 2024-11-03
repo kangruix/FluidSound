@@ -56,7 +56,7 @@ void BubbleUtils<T>::_parseBubble(std::pair<int, Bubble<T>> &bubPair, std::ifstr
         bub.solveTimes.push_back(time); 
         bub.wfreqs.push_back(2 * M_PI * freqHz);
         bub.x.push_back(x); bub.y.push_back(y); bub.z.push_back(z);
-        bub.pressures.push_back(pressure);
+        //bub.pressures.push_back(pressure);
     };
 
     // Line n: '  End: <event type> <end time> <next bubble ID(s)>'...

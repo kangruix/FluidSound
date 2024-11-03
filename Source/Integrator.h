@@ -23,13 +23,13 @@ template <typename T>
 class Integrator
 {
 public:
-    Integrator(double dt) : _dt(dt) { Kvals.resize(1024); Cvals.resize(1024); Fvals.resize(1024); }
+    Integrator(double dt) : _dt(dt) { }
      
     /** \brief Takes an RK4 integration step */
     void step(double time);
 
     /**
-     * \brief Copies over all Oscillator data needed for the current integration batch. Must be called at start of batch.
+     * \brief Copies all Oscillator data needed for the integration batch; must be called at start of batch.
      * \param[in]  coupled_osc    Oscillators to treat as coupled
      * \param[in]  uncoupled_osc  Oscillators to treat as uncoupled
      * \param[in]  time1          integration batch start time
@@ -67,11 +67,10 @@ protected:
     double _t1 = -1., _t2 = -1.;
 
     // Solve data (over all active Oscillators) at times '_t1' and '_t2'
-    Eigen::Array<T, 7, Eigen::Dynamic> _solveData1, _solveData2;
+    Eigen::Array<T, 6, Eigen::Dynamic> _solveData1, _solveData2;
 
 
     std::vector<double> _ft1, _ft2;
-    //std::vector<std::shared_ptr<ForcingFunction>> _forcing1, _forcing2;
     std::vector<std::pair<double, double>> _forceData1, _forceData2;
 
 
@@ -81,12 +80,15 @@ public:
     std::chrono::duration<double> solve_time = std::chrono::duration<double>::zero();
 };
 
-
+/**
+ * \class Coupled_Direct
+ * \brief
+ */
 template <typename T>
 class Coupled_Direct : public Integrator<T>
 {
 public:
-    Coupled_Direct(double dt) : Integrator<T>(dt) { _RHS.resize(1024); }
+    Coupled_Direct(double dt) : Integrator<T>(dt) { }
 
     void refactor();
     Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& States, double time);
@@ -97,23 +99,28 @@ private:
     /** \private */
     void _constructMass(double time);
 
-    // --- host (CPU)
+#ifndef USE_CUDA
+    // --- host (CPU) ---
     Eigen::Matrix<double, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
     Eigen::ArrayXd _radii;
 
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> _M;
     Eigen::LLT<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
     Eigen::Vector<T, Eigen::Dynamic> _RHS;
-
-    // --- device (GPU)
-    /*Eigen::MatrixXd L1, L2;
+#else
+    // --- device (GPU) ---
+    Eigen::MatrixXd L1, L2;
     double *d_cx, *d_cy, *d_cz, *d_r;
 
     double *d_M;
-    double *d_RHS;*/
+    double *d_RHS;
+#endif
 };
 
-
+/**
+ * \class Uncoupled
+ * \brief
+ */
 template <typename T>
 class Uncoupled : public Integrator<T>
 {

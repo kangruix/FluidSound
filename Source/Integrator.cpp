@@ -31,7 +31,7 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
     _N_coupled = coupled_osc.size(); _N_total = total_osc.size();
     _t1 = time1; _t2 = time2;
 
-    _solveData1.resize(7, _N_total); _solveData2.resize(7, _N_total);
+    _solveData1.resize(6, _N_total); _solveData2.resize(6, _N_total);
     for (int i = 0; i < _N_total; i++)
     {
         _solveData1.col(i) = total_osc[i]->interp(time1);
@@ -39,7 +39,6 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
     }
 
     _ft1.resize(_N_coupled); _ft2.resize(_N_coupled);
-    //_forcing1.resize(_N_coupled); _forcing2.resize(_N_coupled);
     _forceData1.resize(_N_coupled); _forceData2.resize(_N_coupled);
     for (int i = 0; i < _N_coupled; i++)
     {
@@ -49,25 +48,15 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
             {
                 _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
                 _ft2[i] = _ft1[i];
-                //std::pair<double, double> forcePair(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
-                //    total_osc[i]->m_forcing[forceIdx].second->m_weight);
-                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second; //forcePair;
+                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second;
                 _forceData2[i] = _forceData1[i];
-                //_forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                //_forcing2[i] = _forcing1[i];
             }
             else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
             {
                 _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
                 _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
-                //std::pair<double, double> forcePair1(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
-                //    total_osc[i]->m_forcing[forceIdx].second->m_weight);
-                //std::pair<double, double> forcePair2(total_osc[i]->m_forcing[forceIdx + 1].second->m_cutoff,
-                //    total_osc[i]->m_forcing[forceIdx + 1].second->m_weight);
-                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second; //forcePair1;
-                _forceData2[i] = total_osc[i]->m_forcing[forceIdx + 1].second; //forcePair2;
-                //_forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                //_forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
+                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                _forceData2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
                 break;
             }
         }
@@ -93,23 +82,11 @@ void Integrator<T>::computeKCF(double time)
     Eigen::ArrayX<T> w0 = (1. - alpha) * _solveData1.row(1) + alpha * _solveData2.row(1);
     Kvals = w0 * w0;
 
-    Cvals = (1. - alpha) * _solveData1.row(6) + alpha * _solveData2.row(6);
+    Cvals = (1. - alpha) * _solveData1.row(5) + alpha * _solveData2.row(5);
 
     Fvals = Eigen::ArrayX<T>::Zero(_N_total);
-
-    /*Kvals.head(_N_total) = (1. - alpha) * _solveData1.row(1) + alpha * _solveData2.row(1);
-    Kvals.head(_N_total) *= Kvals.head(_N_total);
-
-    Cvals.head(_N_total) = (1. - alpha) * _solveData1.row(6) + alpha * _solveData2.row(6);
-
-    Fvals.head(_N_total) *= 0.;*/
-
-    //Eigen::ArrayXd pressures = (1. - alpha) * _solveData1.row(5) + (alpha) * _solveData2.row(5);
     for (int i = 0; i < _N_coupled; i++)
     {
-        //if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
-        //else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
-
         if (time > _ft2[i])
         {
             double cutoff = _forceData2[i].first;
@@ -126,9 +103,7 @@ void Integrator<T>::computeKCF(double time)
 
             Fvals[i] = (t < cutoff) * weight * t * t;
         }
-        //Fvals[i] /= pressures[i];
     }
-    //Fvals.head(_N_total) *= Kvals.head(_N_total);
 
     auto coeff_end = std::chrono::steady_clock::now();
     coeff_time += coeff_end - coeff_start;

@@ -130,7 +130,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
         Oscillator<T> osc;
         osc.startTime = curBub->startTime;
         std::vector<double> solveTimes;
-        std::vector<T> radii, wfreqs, x, y, z, pressures, Cvals;
+        std::vector<T> radii, wfreqs, x, y, z, Cvals;
 
         double prevStartTime = -1.;
         while (true)
@@ -145,7 +145,6 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             x.insert(x.end(), curBub->x.begin(), curBub->x.end());
             y.insert(y.end(), curBub->y.begin(), curBub->y.end());
             z.insert(z.end(), curBub->z.begin(), curBub->z.end());
-            pressures.insert(pressures.end(), curBub->pressures.begin(), curBub->pressures.end());
 
             osc.bubIDs.push_back(curBubID);
             
@@ -266,15 +265,14 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             Cvals.push_back(2. * Oscillator<T>::calcBeta(radii[i], wfreqs[i]));
         }
         osc.solveTimes = solveTimes;
-        osc.solveData.resize(7, solveTimes.size());
+        osc.solveData.resize(6, solveTimes.size());
 
         osc.solveData.row(0) = Eigen::Map<Eigen::VectorX<T>>(radii.data(), radii.size());
         osc.solveData.row(1) = Eigen::Map<Eigen::VectorX<T>>(wfreqs.data(), wfreqs.size());
         osc.solveData.row(2) = Eigen::Map<Eigen::VectorX<T>>(x.data(), x.size());
         osc.solveData.row(3) = Eigen::Map<Eigen::VectorX<T>>(y.data(), y.size());
         osc.solveData.row(4) = Eigen::Map<Eigen::VectorX<T>>(z.data(), z.size());
-        osc.solveData.row(5) = Eigen::Map<Eigen::VectorX<T>>(pressures.data(), pressures.size());
-        osc.solveData.row(6) = Eigen::Map<Eigen::VectorX<T>>(Cvals.data(), Cvals.size());
+        osc.solveData.row(5) = Eigen::Map<Eigen::VectorX<T>>(Cvals.data(), Cvals.size());
 
 
         // Finally, add this Oscillator
