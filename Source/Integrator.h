@@ -71,7 +71,7 @@ protected:
 
 
     std::vector<double> _ft1, _ft2;
-    std::vector<std::shared_ptr<ForcingFunction>> _forcing1, _forcing2;
+    //std::vector<std::shared_ptr<ForcingFunction>> _forcing1, _forcing2;
     std::vector<std::pair<double, double>> _forceData1, _forceData2;
 
 
@@ -86,7 +86,7 @@ template <typename T>
 class Coupled_Direct : public Integrator<T>
 {
 public:
-    Coupled_Direct(double dt) : Integrator(dt) { _RHS.resize(1024); }
+    Coupled_Direct(double dt) : Integrator<T>(dt) { _RHS.resize(1024); }
 
     void refactor();
     Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& States, double time);
@@ -118,7 +118,7 @@ template <typename T>
 class Uncoupled : public Integrator<T>
 {
 public:
-    Uncoupled(double dt) : Integrator(dt) { }
+    Uncoupled(double dt) : Integrator<T>(dt) { }
     
     void refactor() { }
     Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time);

@@ -149,16 +149,69 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
 
             osc.bubIDs.push_back(curBubID);
             
-            // Filter forcing events: only use this one if it's as least 1ms since the last one
-            //if (curBub->m_startTime - prevStartTime > 0.001)
-            //if (curBub->m_startTime <= curBub->m_endTime)
-            {
-                //std::shared_ptr<ForcingFunction> force = makeForcingFunc(curBubID, *curBub, bubMap);
-                std::pair<T, T> force = makeForcingFunc(curBubID, *curBub, bubMap);
-                osc.m_forcing.push_back(std::make_pair(curBub->startTime, force));
-                prevStartTime = curBub->startTime;
-            }
 
+            // ----- Handle bubble start event: forcing logic -----
+            std::pair<double, double> force(0., 0.);
+
+            if (curBub->startType == EventType::SPLIT)
+            {
+                int parentBubID = curBub->prevBubIDs.at(0);
+                if (bubMap.at(parentBubID).radius >= curBub->radius)
+                {
+                    force = Oscillator<double>::_CzerskiJetForcing(curBub->radius);
+                }
+            }
+            else if (curBub->startType == EventType::MERGE)
+            {
+                if (curBub->prevBubIDs.size() == 2)
+                {
+                    bool allMerge = true;
+                    for (int parentBubID : curBub->prevBubIDs)
+                    {
+                        allMerge = allMerge && (bubMap.at(parentBubID).endType == EventType::MERGE);
+                    }
+
+                    if (allMerge)
+                    {
+                        int p1 = curBub->prevBubIDs.at(0);
+                        int p2 = curBub->prevBubIDs.at(1);
+
+                        double r1 = bubMap.at(p1).radius;
+                        double r2 = bubMap.at(p2).radius;
+
+                        if (r1 + r2 > curBub->radius)
+                        {
+                            double v1 = 4. / 3. * M_PI * r1 * r1 * r1;
+                            double v2 = 4. / 3. * M_PI * r2 * r2 * r2;
+                            double vn = 4. / 3. * M_PI * curBub->radius * curBub->radius * curBub->radius;
+
+                            double diff = v1 + v2 - vn;
+                            if (diff <= std::max<double>(v1, v2))
+                            {
+                                if (v1 > v2) { v1 -= diff; }
+                                else { v2 -= diff; }
+
+                                r1 = std::pow(3. / 4. / M_PI * v1, 1. / 3.);
+                                r2 = std::pow(3. / 4. / M_PI * v2, 1. / 3.);
+
+                                force = Oscillator<double>::_MergeForcing(curBub->radius, r1, r2);
+                            }
+                        }
+                        else
+                        {
+                            force = Oscillator<double>::_MergeForcing(curBub->radius, r1, r2);
+                        }
+                    }
+                }
+            }
+            else if (curBub->startType == EventType::ENTRAIN)
+            {
+                force = Oscillator<double>::_CzerskiJetForcing(curBub->radius);
+            }
+            osc.m_forcing.push_back(std::make_pair(curBub->startTime, force));
+
+
+            // ----- Handle bubble end event: chaining logic -----
             if (curBub->endType == EventType::MERGE)
             {
                 const Bubble<T>& nextBub = bubMap.at(curBub->nextBubIDs.at(0));

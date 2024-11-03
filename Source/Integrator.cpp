@@ -39,7 +39,7 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
     }
 
     _ft1.resize(_N_coupled); _ft2.resize(_N_coupled);
-    _forcing1.resize(_N_coupled); _forcing2.resize(_N_coupled);
+    //_forcing1.resize(_N_coupled); _forcing2.resize(_N_coupled);
     _forceData1.resize(_N_coupled); _forceData2.resize(_N_coupled);
     for (int i = 0; i < _N_coupled; i++)
     {
