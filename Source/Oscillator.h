@@ -24,7 +24,6 @@ static const REAL GAMMA = 1.4;			// gas heat capacity ratio
 static const REAL MU = 8.9e-4;			// dynamic viscosity of water
 static const REAL GTH = 1.6e6;			// thermal damping constant
 static const REAL CF = 1497;			// speed of sound in water
-static const REAL CA = 343;				// speed of sound in air
 static const REAL G = 1.0;				// 
 static const REAL ATM = 101325;			// atmospheric pressure
 static const REAL ETA = 0.84;			// tan(40 degrees)
@@ -43,14 +42,11 @@ public:
 };
 
 
-class Oscillator
+struct Oscillator
 {
-public:
-    Oscillator() { m_state.setZero(); }
-
     double m_startTime = -1.;
     double m_endTime = -1.;
-    Eigen::Vector2d m_state; // [v v']
+    Eigen::Vector2d m_state = { 0., 0. }; // [v v']
     double m_accel = 0.;
 
     Eigen::ArrayXd m_times;
@@ -78,6 +74,8 @@ public:
 
     std::vector<int> m_bubIDs;
     std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
+
+    
 
 private:
     int m_idx = 0;
@@ -128,6 +126,7 @@ public:
 
     double modulation(double t)
     {
+        return 1.;
         return 0.5 - 1.0 / M_PI * atan(5000.0 * (t - m_r));
         return 0.5 * erfc(24. * t / m_r - 5.);
     }
@@ -197,6 +196,7 @@ public:
     double modulation(double t)
     {
         // From Czerski paper, doesn't go to zero fast enough
+        return 1.;
         return 0.5 - 1 / M_PI * std::atan(3 * (t - m_cutoff) / m_cutoff);
 
         //return 0.5 * std::erfc(4000. * (t - m_tlim));

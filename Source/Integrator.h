@@ -7,9 +7,10 @@
 #ifndef _FS_INTEGRATOR_H
 #define _FS_INTEGRATOR_H
 
-#include "Oscillator.h"
+
 #include <chrono>
-#include <iostream>
+
+#include "Oscillator.h"
 
 namespace FluidSound {
 
@@ -45,10 +46,10 @@ public:
         Fvals.head(n_total) *= 0.;
         for (int i = 0; i < n_coupled; ++i)
         {
-            if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
-            else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
+            //if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
+            //else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
 
-            /*if (time > _ft2[i])
+            if (time > _ft2[i])
             {
                 double cutoff = _forceData2[i].first;
                 double weight = _forceData2[i].second;
@@ -65,22 +66,7 @@ public:
                 if (t < 0. || cutoff < 0.) { std::cout << "rip" << std::endl; }
 
                 Fvals[i] = (t < cutoff) * weight * t * t;
-            }*/
-
-            /*Oscillator* osc = _coupled_osc[i];
-            
-            // Compute forcing term.  TODO: (Kangrui) consider factoring out / vectorizing
-            int forceIdx = 0;
-            while (forceIdx < osc->m_forcing.size() && time >= osc->m_forcing[forceIdx].first)
-            {
-                if (forceIdx + 1 == osc->m_forcing.size() || time < osc->m_forcing[forceIdx + 1].first)
-                {
-                    Fvals[i] += osc->m_forcing[forceIdx].second->value(time - osc->m_forcing[forceIdx].first);
-                    Fvals[i] /= pressures[i];
-                    break;
-                }
-                forceIdx++;
-            }*/
+            }
             //Fvals[i] /= pressures[i];
         }
         //Fvals.head(n_total) *= Kvals.head(n_total);
