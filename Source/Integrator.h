@@ -42,6 +42,25 @@ public:
             if (time > _ft2[i]) { Fvals[i] = _forcing2[i]->value(time - _ft2[i]); }
             else { Fvals[i] = _forcing1[i]->value(time - _ft1[i]); }
 
+            /*if (time > _ft2[i])
+            {
+                double cutoff = _forceData2[i].first;
+                double weight = _forceData2[i].second;
+                double t = time - _ft2[i];
+                if (t < 0. || cutoff < 0.) { std::cout << "rip" << std::endl; }
+
+                Fvals[i] = (t < cutoff) * weight * t * t;
+            }
+            else
+            {
+                double cutoff = _forceData1[i].first;
+                double weight = _forceData1[i].second;
+                double t = time - _ft1[i];
+                if (t < 0. || cutoff < 0.) { std::cout << "rip" << std::endl; }
+
+                Fvals[i] = (t < cutoff) * weight * t * t;
+            }*/
+
             /*Oscillator* osc = _coupled_osc[i];
             
             // Compute forcing term.  TODO: (Kangrui) consider factoring out / vectorizing
@@ -56,10 +75,9 @@ public:
                 }
                 forceIdx++;
             }*/
-
-            Fvals[i] /= pressures[i];
+            //Fvals[i] /= pressures[i];
         }
-        Fvals.head(n_total) *= Kvals.head(n_total);
+        //Fvals.head(n_total) *= Kvals.head(n_total);
         
         auto coeff_end = std::chrono::steady_clock::now();
         coeff_time += coeff_end - coeff_start;
@@ -81,6 +99,7 @@ public:
 
         _ft1.resize(n_coupled); _ft2.resize(n_coupled);
         _forcing1.resize(n_coupled); _forcing2.resize(n_coupled);
+        _forceData1.resize(n_coupled); _forceData2.resize(n_coupled);
         for (int i = 0; i < n_coupled; i++)
         {
             for (int forceIdx = 0; forceIdx < total_osc[i]->m_forcing.size(); forceIdx++)
@@ -88,14 +107,24 @@ public:
                 if (forceIdx == total_osc[i]->m_forcing.size() - 1)
                 {
                     _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
-                    _ft2 = _ft1;
+                    _ft2[i] = _ft1[i];
+                    std::pair<double, double> forcePair(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                        total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                    _forceData1[i] = forcePair;
+                    _forceData2[i] = _forceData1[i];
                     _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                    _forcing2 = _forcing1;
+                    _forcing2[i] = _forcing1[i];
                 }
                 else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
                 {
                     _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
                     _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
+                    std::pair<double, double> forcePair1(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                        total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                    std::pair<double, double> forcePair2(total_osc[i]->m_forcing[forceIdx + 1].second->m_cutoff,
+                        total_osc[i]->m_forcing[forceIdx + 1].second->m_weight);
+                    _forceData1[i] = forcePair1;
+                    _forceData2[i] = forcePair2;
                     _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
                     _forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
                     break;
@@ -134,6 +163,7 @@ protected:
 
     std::vector<double> _ft1, _ft2;
     std::vector<std::shared_ptr<ForcingFunction>> _forcing1, _forcing2;
+    std::vector<std::pair<double, double>> _forceData1, _forceData2;
     
     Eigen::ArrayXd Kvals;
     Eigen::ArrayXd Cvals;

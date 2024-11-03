@@ -7,17 +7,34 @@
 
 
 #include <Eigen/Dense>
-#include "BubbleIO.h"
+#include "BubbleUtils.h"
 #include <random>
 
 
 namespace FluidSound {
+
+static const REAL RHO_WATER = 998.;		// density of water
+static const REAL SIGMA = 0.0726;		// surface tension
+static const REAL GAMMA = 1.4;			// gas heat capacity ratio
+static const REAL MU = 8.9e-4;			// dynamic viscosity of water
+static const REAL GTH = 1.6e6;			// thermal damping constant
+static const REAL CF = 1497;			// speed of sound in water
+static const REAL CA = 343;				// speed of sound in air
+static const REAL G = 1.0;				// 
+static const REAL ATM = 101325;			// atmospheric pressure
+static const REAL ETA = 0.84;			// tan(40 degrees)
+static const REAL ETA_SPLIT = 0.364;	// tan(20 degrees)
+static const REAL ETA_ENTRAIN = 1.732;	// tan(60 degrees)
+
 
 class ForcingFunction
 {
 public:
     virtual ~ForcingFunction() { }
     virtual double value(double t) = 0;
+
+    double m_cutoff = 0.;
+    double m_weight = 0.;
 };
 
 
@@ -88,7 +105,6 @@ public:
         : m_r(r),
         //m_cutoff (std::min(cutoff, 0.5 / (3.0 / r))), // 1/2 minnaert period
         //m_cutoff (std::min(fTimeCutoff, std::min(cutoff, 0.5 / (3.0 / r)))), // 1/2 minnaert period
-        m_cutoff(std::min(fTimeCutoff, std::min(5000., 0.5 / (3.0 / r)))),
         //m_cutoff (std::min(cutoff, 0.0004)), // 1/2 minnaert period
         m_eta(0.95),
         //m_eta(s_eta(s_forcingRnd)),
@@ -97,6 +113,17 @@ public:
         m_useModulation(useModulation),
         m_multiplier(multiplier)
     {
+        m_cutoff = std::min(fTimeCutoff, std::min(5000., 0.5 / (3.0 / r)));
+
+        m_weight = -9 * GAMMA * SIGMA * m_eta * (ATM + 2 * SIGMA / m_r) * sqrt(1 + m_eta * m_eta) / (4 * RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r);
+        m_weight *= m_r;
+
+        // Convert to pressure
+        double mrp = RHO_WATER * m_r;
+        m_weight *= mrp;
+
+        double mass = (RHO_WATER / (4. * M_PI * m_r));
+        m_weight /= mass;
     }
 
     double modulation(double t)
@@ -108,17 +135,19 @@ public:
     double value(double t)
     {
         if (t > m_cutoff) { return 0.0; }
+        return modulation(t) * m_weight * t * t;
 
-        double mass = 1.;// (RHO_WATER / (4. * M_PI * m_r));
         //return fittedValue(t);
-        if (m_useLaplace)
+        /*if (m_useLaplace)
         {
-            return m_multiplier / mass * (jetValue(t) - laplaceVal(t));
+            return m_multiplier * (jetValue(t) - laplaceVal(t));
         }
         else
         {
-            return m_multiplier / mass * jetValue(t);
-        }
+            return m_multiplier * jetValue(t);
+        }*/
+
+        return jetValue(t);
         //return gaussianValue(t);
     }
 
@@ -139,18 +168,7 @@ public:
             return 0.0;
         }
 
-        double jval = -9 * GAMMA * SIGMA * m_eta * (ATM + 2 * SIGMA / m_r) * sqrt(1 + m_eta * m_eta) / (4 * RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r) * t * t;
-
-        // Convert to radius (instead of fractional radius)
-        jval *= m_r;
-
-        // Convert to pressure
-        double mrp = RHO_WATER * m_r;
-        jval *= mrp;
-
-        // Convert to force
-        //double factor = 4 * M_PI * m_r * m_r;
-        //jval *= factor;
+        double jval = m_weight * t * t;
 
         if (m_useModulation)
         {
@@ -199,7 +217,7 @@ public:
 
 private:
     double m_r;
-    double m_cutoff;
+    //double m_cutoff;
     double m_eta;
 
     double m_multiplier;
@@ -207,6 +225,8 @@ private:
     bool m_useLaplace;
     bool m_laplaceDone;
     bool m_useModulation;
+
+    //double m_weight;
 };
 
 
@@ -233,45 +253,40 @@ public:
 
         cutoff = std::min(cutoff, 0.5 / (3.0 / r)); // 1/2 minnaert period
         cutoff = std::min(cutoff, fTimeCutoff); // 1/2 minnaert period
-        m_tlim = std::min(cutoff,
+        m_cutoff = std::min(cutoff,
             std::pow(frac * std::min(r1, r2) / 2. / factor,
                 2));
+
+        m_weight = 6 * SIGMA * GAMMA * (ATM + 2 * SIGMA / m_r) *
+            (RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r);
+
+        // Convert to radius (instead of fractional radius)
+        m_weight *= m_r;
+
+        // Convert to pressure
+        double mrp = RHO_WATER * m_r;
+        m_weight *= mrp;
+
+        double mass = (RHO_WATER / (4. * M_PI * m_r));
+        m_weight /= mass;
     }
 
     double modulation(double t)
     {
         // From Czerski paper, doesn't go to zero fast enough
-        return 0.5 - 1 / M_PI * std::atan(3 * (t - m_tlim) / m_tlim);
+        return 0.5 - 1 / M_PI * std::atan(3 * (t - m_cutoff) / m_cutoff);
 
         //return 0.5 * std::erfc(4000. * (t - m_tlim));
     }
 
     double value(double t)
     {
-        if (t > m_tlim)
-        {
-            return 0;
-        }
-
-        double jval = 6 * SIGMA * GAMMA * (ATM + 2 * SIGMA / m_r) * t * t /
-            (RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r);
-
-        // Convert to radius (instead of fractional radius)
-        jval *= m_r;
-
-        // Convert to pressure
-        double mrp = RHO_WATER * m_r;
-        jval *= mrp;
-
-        //jval /= (RHO_WATER / (4. * M_PI * m_r));
-
-        //return jval;
-        return jval * modulation(t);
+        if (t > m_cutoff) { return 0; }
+        return modulation(t) * m_weight * t * t;
     }
 
 private:
     double m_r;
-    double m_tlim;
 };
 
 
