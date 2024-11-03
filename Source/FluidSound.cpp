@@ -153,7 +153,8 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             //if (curBub->m_startTime - prevStartTime > 0.001)
             //if (curBub->m_startTime <= curBub->m_endTime)
             {
-                std::shared_ptr<ForcingFunction> force = makeForcingFunc(curBubID, *curBub, bubMap);
+                //std::shared_ptr<ForcingFunction> force = makeForcingFunc(curBubID, *curBub, bubMap);
+                std::pair<T, T> force = makeForcingFunc(curBubID, *curBub, bubMap);
                 osc.m_forcing.push_back(std::make_pair(curBub->startTime, force));
                 prevStartTime = curBub->startTime;
             }

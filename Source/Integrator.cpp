@@ -49,25 +49,25 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
             {
                 _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
                 _ft2[i] = _ft1[i];
-                std::pair<double, double> forcePair(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
-                    total_osc[i]->m_forcing[forceIdx].second->m_weight);
-                _forceData1[i] = forcePair;
+                //std::pair<double, double> forcePair(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                //    total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second; //forcePair;
                 _forceData2[i] = _forceData1[i];
-                _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                _forcing2[i] = _forcing1[i];
+                //_forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                //_forcing2[i] = _forcing1[i];
             }
             else if (time1 < total_osc[i]->m_forcing[forceIdx + 1].first)
             {
                 _ft1[i] = total_osc[i]->m_forcing[forceIdx].first;
                 _ft2[i] = total_osc[i]->m_forcing[forceIdx + 1].first;
-                std::pair<double, double> forcePair1(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
-                    total_osc[i]->m_forcing[forceIdx].second->m_weight);
-                std::pair<double, double> forcePair2(total_osc[i]->m_forcing[forceIdx + 1].second->m_cutoff,
-                    total_osc[i]->m_forcing[forceIdx + 1].second->m_weight);
-                _forceData1[i] = forcePair1;
-                _forceData2[i] = forcePair2;
-                _forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
-                _forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
+                //std::pair<double, double> forcePair1(total_osc[i]->m_forcing[forceIdx].second->m_cutoff,
+                //    total_osc[i]->m_forcing[forceIdx].second->m_weight);
+                //std::pair<double, double> forcePair2(total_osc[i]->m_forcing[forceIdx + 1].second->m_cutoff,
+                //    total_osc[i]->m_forcing[forceIdx + 1].second->m_weight);
+                _forceData1[i] = total_osc[i]->m_forcing[forceIdx].second; //forcePair1;
+                _forceData2[i] = total_osc[i]->m_forcing[forceIdx + 1].second; //forcePair2;
+                //_forcing1[i] = total_osc[i]->m_forcing[forceIdx].second;
+                //_forcing2[i] = total_osc[i]->m_forcing[forceIdx + 1].second;
                 break;
             }
         }

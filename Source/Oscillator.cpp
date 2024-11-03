@@ -9,7 +9,7 @@
 
 namespace FluidSound {
 
-static const double fTimeCutoff = 0.0006;  // TODO
+//static const double fTimeCutoff = 0.0006;  // TODO
 
 template <typename T>
 std::pair<T, T> Oscillator<T>::_CzerskiJetForcing(T radius)
@@ -19,7 +19,7 @@ std::pair<T, T> Oscillator<T>::_CzerskiJetForcing(T radius)
 
     T cutoff = std::min(fTimeCutoff, std::min(5000., 0.5 / (3.0 / radius)));
 
-    T weight = -9 * GAMMA * SIGMA * m_eta * (ATM + 2 * SIGMA / m_r) * sqrt(1 + m_eta * m_eta) / (4 * RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r);
+    T weight = -9 * GAMMA * SIGMA * eta * (ATM + 2 * SIGMA / m_r) * sqrt(1 + eta * eta) / (4 * RHO_WATER * RHO_WATER * m_r * m_r * m_r * m_r * m_r);
     weight *= m_r;
 
     // Convert to pressure

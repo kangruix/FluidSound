@@ -88,7 +88,8 @@ struct Oscillator
     bool operator < (const Oscillator& osc) const { return startTime < osc.startTime; }
 
 
-    std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
+    //std::vector< std::pair<double, std::shared_ptr<ForcingFunction>> > m_forcing;
+    std::vector<std::pair<double, std::pair<T, T>>> m_forcing;
 
 
     static std::pair<T, T> _CzerskiJetForcing(T radius);
@@ -244,7 +245,8 @@ public:
 
 
 //##############################################################################
-static std::shared_ptr<ForcingFunction>
+//static std::shared_ptr<ForcingFunction>
+static std::pair<double, double>
 makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
     const std::map<int, Bubble<REAL>>& bubMap)
 {
@@ -255,6 +257,8 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
      */
     std::shared_ptr<ForcingFunction> forcing;
     forcing.reset(new ZeroForcing());
+
+    std::pair<double, double> force(0., 0.);
 
     // If this bubble came from another bubble, set the state correctly
     if (curBub.startType == EventType::SPLIT)
@@ -267,6 +271,7 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
                 ETA,
                 false,
                 false));
+            force = Oscillator<double>::_CzerskiJetForcing(curBub.radius);
         }
     } // END if (curBub.m_startType == Bubble::SPLIT))
 
@@ -327,6 +332,7 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
                             r2,
                             5000));
                         //curBub.m_endTime - curBub.m_startTime));
+                        force = Oscillator<double>::_MergeForcing(curBub.radius, r1, r2);
                     }
                 }
                 else
@@ -336,6 +342,7 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
                         r2,
                         5000));
                     //curBub.m_endTime - curBub.m_startTime));
+                    force = Oscillator<double>::_MergeForcing(curBub.radius, r1, r2);
                 }
             }
         }
@@ -352,9 +359,11 @@ makeForcingFunc(int curBubID, const Bubble<REAL>& curBub,
             false,
             1));
         //forcing.reset(new ZeroForcing());
+        force = Oscillator<double>::_CzerskiJetForcing(curBub.radius);
     }
 
-    return forcing;
+    return force;
+    //return forcing;
 }
 
 } // namespace FluidSound
