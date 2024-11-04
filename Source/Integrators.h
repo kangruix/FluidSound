@@ -1,13 +1,17 @@
 /** (c) 2024 Kangrui Xue
  *
- * \file Integrator.h
+ * \file Integrators.h
  * \brief Defines classes for numerically integrating coupled (or uncoupled) Oscillator systems
  */
 
-#ifndef _FS_INTEGRATOR_H
-#define _FS_INTEGRATOR_H
+#ifndef _FS_INTEGRATORS_H
+#define _FS_INTEGRATORS_H
 
-
+#ifdef USE_CUDA
+    #include "cuda_runtime.h"
+    #include "device_launch_parameters.h"
+    #include "cublas_v2.h"
+#endif
 #include <chrono>
 
 #include "Oscillator.h"
@@ -57,19 +61,19 @@ protected:
     int _N_total = 0;       //!< total number of Oscillators for the batch
 
     // 
-    Eigen::ArrayXd _Kvals, _Cvals, _Fvals;
-    void computeKCF(double time);
+    Eigen::ArrayX<T> _Kvals, _Cvals, _Fvals;
+    void _computeKCF(double time);
 
-    Eigen::ArrayX<T> _States;    //!< packed state vectors [v v'] (over all active Oscillators)
-    Eigen::ArrayX<T> _Derivs;    //!< packed derivatives [v' v''] (over all active Oscillators)
+    Eigen::ArrayX<T> _States;    //!< packed state vectors [v v'] (all active Oscillators)
+    Eigen::ArrayX<T> _Derivs;    //!< packed derivatives [v' v''] (all active Oscillators)
 
     // Batch endpoint times
     double _t1 = -1., _t2 = -1.;
 
-    // Solve data (over all active Oscillators) at times '_t1' and '_t2'
+    /** \brief solve data @see Oscillators.solveData */
     Eigen::Array<T, 6, Eigen::Dynamic> _solveData1, _solveData2;
 
-    // Force data
+    /** \brief force data @see Oscillators.forceData */
     Eigen::Array<T, 3, Eigen::Dynamic> _forceData1, _forceData2;
 
 public:
@@ -107,10 +111,9 @@ private:
     Eigen::Vector<T, Eigen::Dynamic> _RHS;
 #else
     // --- device (GPU) ---
-    Eigen::MatrixXd L1, L2;
     T *d_cx, *d_cy, *d_cz, *d_r;
 
-    T *d_M;
+    T *d_M1, *d_M2;
     T *d_RHS;
 #endif
 };
@@ -131,4 +134,4 @@ public:
 
 } // namespace FluidSound
 
-#endif // _FS_INTEGRATOR_H
+#endif // _FS_INTEGRATORS_H

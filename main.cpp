@@ -5,11 +5,12 @@
 
 #include "FluidSound.h"
 
+typedef float precision;
 
 void Run(const std::string& bubFile, int srate, int scheme)
 {
     double dt = 1. / srate;
-    FluidSound::Solver<double> solver(bubFile, dt, scheme);
+    FluidSound::Solver<precision> solver(bubFile, dt, scheme);
     std::ofstream out_file("output.txt");
 
     // Simulate from t = 0 to t = 'tf' seconds, logging sum of oscillators in "output.txt"

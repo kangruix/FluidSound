@@ -1,12 +1,10 @@
 # (c) 2024 Kangrui Xue
 #
-# play.py
-#
+# write_wav.py
 # Script for reading simulation output and writing to .wav file
 
-
 import sys
-import matplotlib.pyplot as plt, numpy as np
+import numpy as np, matplotlib.pyplot as plt
 import soundfile as sf
 
 
@@ -30,4 +28,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 3:
         write_wav(sys.argv[1], int(sys.argv[2]))
     else:
-        print("Usage: play.py <datafile> <samplerate>")
+        print("Usage: write_wav.py <output file> <samplerate>")

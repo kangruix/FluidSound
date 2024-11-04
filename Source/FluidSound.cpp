@@ -28,7 +28,7 @@ Solver<T>::Solver(const std::string &bubFile, double dt, int scheme) : _dt(dt)
 
 /** */
 template <typename T>
-double Solver<T>::step()
+T Solver<T>::step()
 {
     double time = _dt * _step + 0.2;
     while (_evID < _eventTimes.size() && time >= _eventTimes[_evID])
@@ -97,7 +97,7 @@ double Solver<T>::step()
     _integrator->step(time);
 
     // Unpack _integrator->States() to update Oscillator states accordingly
-    double total_response = 0.0;
+    T total_response = 0.0;
     for (int i = 0; i < N_total; i++)
     {
         total_osc[i]->state(0) = _integrator->States()(i);
@@ -129,6 +129,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
 
         Oscillator<T> osc;
         osc.startTime = curBub->startTime;
+
         std::vector<double> solveTimes;
         std::vector<T> radii, wfreqs, x, y, z, Cvals;
         std::vector<T> forceTimes, cutoffs, weights;
@@ -151,14 +152,14 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             
 
             // ----- Handle bubble start event: forcing logic -----
-            std::pair<double, double> force(0., 0.);
+            std::pair<T, T> force(0., 0.);
 
             if (curBub->startType == EventType::SPLIT)
             {
                 int parentBubID = curBub->prevBubIDs.at(0);
                 if (bubMap.at(parentBubID).radius >= curBub->radius)
                 {
-                    force = Oscillator<double>::_CzerskiJetForcing(curBub->radius);
+                    force = Oscillator<T>::CzerskiJetForcing(curBub->radius);
                 }
             }
             else if (curBub->startType == EventType::MERGE)
@@ -176,17 +177,17 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
                         int p1 = curBub->prevBubIDs.at(0);
                         int p2 = curBub->prevBubIDs.at(1);
 
-                        double r1 = bubMap.at(p1).radius;
-                        double r2 = bubMap.at(p2).radius;
+                        T r1 = bubMap.at(p1).radius;
+                        T r2 = bubMap.at(p2).radius;
 
                         if (r1 + r2 > curBub->radius)
                         {
-                            double v1 = 4. / 3. * M_PI * r1 * r1 * r1;
-                            double v2 = 4. / 3. * M_PI * r2 * r2 * r2;
-                            double vn = 4. / 3. * M_PI * curBub->radius * curBub->radius * curBub->radius;
+                            T v1 = 4. / 3. * M_PI * r1 * r1 * r1;
+                            T v2 = 4. / 3. * M_PI * r2 * r2 * r2;
+                            T vn = 4. / 3. * M_PI * curBub->radius * curBub->radius * curBub->radius;
 
-                            double diff = v1 + v2 - vn;
-                            if (diff <= std::max<double>(v1, v2))
+                            T diff = v1 + v2 - vn;
+                            if (diff <= std::max(v1, v2))
                             {
                                 if (v1 > v2) { v1 -= diff; }
                                 else { v2 -= diff; }
@@ -194,19 +195,19 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
                                 r1 = std::pow(3. / 4. / M_PI * v1, 1. / 3.);
                                 r2 = std::pow(3. / 4. / M_PI * v2, 1. / 3.);
 
-                                force = Oscillator<double>::_MergeForcing(curBub->radius, r1, r2);
+                                force = Oscillator<T>::MergeForcing(curBub->radius, r1, r2);
                             }
                         }
                         else
                         {
-                            force = Oscillator<double>::_MergeForcing(curBub->radius, r1, r2);
+                            force = Oscillator<T>::MergeForcing(curBub->radius, r1, r2);
                         }
                     }
                 }
             }
             else if (curBub->startType == EventType::ENTRAIN)
             {
-                force = Oscillator<double>::_CzerskiJetForcing(curBub->radius);
+                force = Oscillator<T>::CzerskiJetForcing(curBub->radius);
             }
             forceTimes.push_back(curBub->startTime);
             cutoffs.push_back(force.first);
@@ -229,7 +230,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
             else if (curBub->endType == EventType::SPLIT)
             {
                 // Sort children in order of size
-                std::multimap<double, int, std::greater<double> > children;
+                std::multimap<T, int, std::greater<T>> children;
                 for (int childID : curBub->nextBubIDs)
                 {
                     children.insert(std::make_pair(bubMap.at(childID).radius, childID));
@@ -295,7 +296,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
     _eventTimes.assign(eventTimesSet.begin(), eventTimesSet.end());
 }
 
-//template class Solver<float>;
+template class Solver<float>;
 template class Solver<double>;
 
 } // namespace FluidSound

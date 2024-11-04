@@ -60,7 +60,7 @@ struct Oscillator
     /** \brief Returns true if this Oscillator has decayed sufficiently */
     bool is_dead() const { return state.norm() < 1e-10; }
     
-    bool operator < (const Oscillator& osc) const { return startTime < osc.startTime; }
+    bool operator < (const Oscillator<T>& osc) const { return startTime < osc.startTime; }
 
 
     Eigen::Array<T, 3, Eigen::Dynamic> forceData;
@@ -73,10 +73,10 @@ struct Oscillator
      */
 
     /** \brief TODO */
-    static std::pair<T, T> _CzerskiJetForcing(T radius);
+    static std::pair<T, T> CzerskiJetForcing(T radius);
     
     /** \brief TODO */
-    static std::pair<T, T> _MergeForcing(T radius, T r1, T r2);
+    static std::pair<T, T> MergeForcing(T radius, T r1, T r2);
     
     /** \brief TODO */
     static T calcBeta(T radius, T w0);

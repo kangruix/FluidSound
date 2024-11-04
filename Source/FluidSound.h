@@ -10,7 +10,7 @@
 
 #include <set>
 
-#include "Integrator.h"
+#include "Integrators.h"
 
 
 namespace FluidSound {
@@ -32,7 +32,7 @@ public:
     Solver(const std::string& bubFile, double dt, int scheme);
 
     /** \brief Timesteps Oscillator vibrations */
-    double step();
+    T step();
 
     //void loadState(const std::string &stateFile);
     //void saveState(const std::string &stateFile);
@@ -56,12 +56,13 @@ private:
 
     Integrator<T>* _integrator;
 
-    std::vector<Oscillator<T>*> _uncoupled_osc, _coupled_osc;
+    std::vector<Oscillator<T>*> _coupled_osc;
+    std::vector<Oscillator<T>*> _uncoupled_osc;
 
     std::vector<Oscillator<T>> _oscillators;   //!< vector of ALL Oscillators, sorted by start time
     int _osID = 0;  //!< current _oscillators index
 
-    std::vector<double> _eventTimes;    //!< vector of sorted times for when to refactor the mass matrix
+    std::vector<double> _eventTimes;    //!< vector of sorted event times (i.e., when to refactor the mass matrix)
     int _evID = 0;  //!< current _eventTimes index
 
     /**

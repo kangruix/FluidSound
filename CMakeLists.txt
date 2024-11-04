@@ -13,7 +13,7 @@ if (CUDA_FOUND AND NOT FORCE_CPU)
 	message(STATUS "Building for GPU")
 	enable_language(CUDA)
 
-	file(GLOB SRC_FILES Source/*.cpp Source/*.cu)
+	file(GLOB SRC_FILES Source/*.cpp Source/Integrators/*.cu)
 	add_executable(${PROJECT_NAME} main.cpp ${SRC_FILES} ${HEADER_FILES})
 
 	target_compile_definitions(${PROJECT_NAME} PRIVATE USE_CUDA)
@@ -22,7 +22,7 @@ if (CUDA_FOUND AND NOT FORCE_CPU)
 else ()
 	message(STATUS "Building for CPU")
 
-	file(GLOB SRC_FILES Source/*.cpp)
+	file(GLOB SRC_FILES Source/*.cpp Source/Integrators/*.cpp)
 	add_executable(${PROJECT_NAME} main.cpp ${SRC_FILES} ${HEADER_FILES})
 
 	target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)

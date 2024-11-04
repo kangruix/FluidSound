@@ -3,7 +3,7 @@
  * \file Integrator.cpp
  */
 
-#include "Integrator.h"
+#include "Integrators.h"
 
 namespace FluidSound {
 
@@ -72,7 +72,7 @@ void Integrator<T>::updateData(const std::vector<Oscillator<T>*>& coupled_osc, c
 
 /** */
 template <typename T>
-void Integrator<T>::computeKCF(double time)
+void Integrator<T>::_computeKCF(double time)
 {
     auto coeff_start = std::chrono::steady_clock::now();
 
@@ -109,7 +109,7 @@ void Integrator<T>::computeKCF(double time)
     coeff_time += coeff_end - coeff_start;
 }
 
-//template class Integrator<float>;
+template class Integrator<float>;
 template class Integrator<double>;
 
 
@@ -167,7 +167,7 @@ void Coupled_Direct<T>::refactor()
 template <typename T>
 Eigen::ArrayX<T> Coupled_Direct<T>::solve(const Eigen::ArrayX<T>& States, double time)
 {
-    computeKCF(time);
+    _computeKCF(time);
 
     auto solve_start = std::chrono::steady_clock::now();
 
@@ -178,11 +178,6 @@ Eigen::ArrayX<T> Coupled_Direct<T>::solve(const Eigen::ArrayX<T>& States, double
     _RHS = (_Fvals - _Cvals * States.segment(_N_total, _N_total) - _Kvals * States.segment(0, _N_total)) / _radii.sqrt();
     _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled)) + alpha * _factor2.solve(_RHS.head(_N_coupled));
 
-    /*_RHS.head(_N_total) = (_Fvals.head(_N_total) - _Cvals.head(_N_total) * States.segment(_N_total, _N_total) -
-        _Kvals.head(_N_total) * States.segment(0, _N_total)) / _radii.head(_N_total).sqrt();
-    _RHS.head(_N_coupled) = (1. - alpha) * _factor1.solve(_RHS.head(_N_coupled))
-        + alpha * _factor2.solve(_RHS.head(_N_coupled));*/
-
     _Derivs.segment(0, _N_total) = States.segment(_N_total, _N_total);
     _Derivs.segment(_N_total, _N_total) = _RHS.array() * _radii.sqrt();
 
@@ -192,7 +187,7 @@ Eigen::ArrayX<T> Coupled_Direct<T>::solve(const Eigen::ArrayX<T>& States, double
     return _Derivs;
 }
 
-//template class Coupled_Direct<float>;
+template class Coupled_Direct<float>;
 template class Coupled_Direct<double>;
 
 
@@ -200,7 +195,7 @@ template class Coupled_Direct<double>;
 template <typename T>
 Eigen::ArrayX<T> Uncoupled<T>::solve(const Eigen::ArrayX<T>& States, double time)
 {
-    computeKCF(time);
+    _computeKCF(time);
 
     auto solve_start = std::chrono::steady_clock::now();
 
@@ -213,7 +208,7 @@ Eigen::ArrayX<T> Uncoupled<T>::solve(const Eigen::ArrayX<T>& States, double time
     return _Derivs;
 }
 
-//template class Uncoupled<float>;
+template class Uncoupled<float>;
 template class Uncoupled<double>;
 
 } // namespace FluidSound
