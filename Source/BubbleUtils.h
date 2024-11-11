@@ -7,7 +7,6 @@
 #ifndef _FS_BUBBLE_UTILS_H
 #define _FS_BUBBLE_UTILS_H
 
-
 #define _USE_MATH_DEFINES  // needed for M_PI in Visual Studio
 #include <math.h>
 
@@ -50,7 +49,7 @@ struct Bubble
     
     // solve data (NOTE: does not include Bubble start and end times)
     std::vector<double> solveTimes;
-    std::vector<T> wfreqs, x, y, z; //, pressures;
+    std::vector<T> w0, x, y, z;
 
     bool hasSolveData() const { return !solveTimes.empty(); }
 };

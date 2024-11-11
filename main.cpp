@@ -5,8 +5,10 @@
 
 #include "FluidSound.h"
 
-typedef float precision;
 
+typedef double precision;
+
+/** */
 void Run(const std::string& bubFile, int srate, int scheme)
 {
     double dt = 1. / srate;
@@ -23,7 +25,7 @@ void Run(const std::string& bubFile, int srate, int scheme)
     solver.printTimings();
 }
 
-
+/** */
 int main(int argc, char* argv[])
 {
     // Default argument values:
@@ -31,7 +33,7 @@ int main(int argc, char* argv[])
     int samplerate = 48000;                     // sampling rate
     int scheme = 1;                             // coupling scheme (0 - uncoupled, 1 - coupled)
 
-    bubFile = "C:/Users/kangruix/Desktop/Stanford/Examples/2016Pour/trackedBubInfo.txt";
+    bubFile = "C:/Users/kangruix/Desktop/Stanford/Examples/ForestCreek/trackedBubInfo.txt";
 
     if (argc > 1) bubFile = std::string(argv[1]);
     if (argc > 2) samplerate = std::atoi(argv[2]);

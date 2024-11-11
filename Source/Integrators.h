@@ -1,17 +1,12 @@
 /** (c) 2024 Kangrui Xue
  *
  * \file Integrators.h
- * \brief Defines classes for numerically integrating coupled (or uncoupled) Oscillator systems
+ * \brief Classes for numerically integrating coupled (or uncoupled) Oscillator systems
  */
 
 #ifndef _FS_INTEGRATORS_H
 #define _FS_INTEGRATORS_H
 
-#ifdef USE_CUDA
-    #include "cuda_runtime.h"
-    #include "device_launch_parameters.h"
-    #include "cublas_v2.h"
-#endif
 #include <chrono>
 
 #include "Oscillator.h"
@@ -84,7 +79,7 @@ public:
 
 /**
  * \class Coupled_Direct
- * \brief
+ * \brief 
  */
 template <typename T>
 class Coupled_Direct : public Integrator<T>
@@ -98,24 +93,16 @@ public:
 private:
     const T _epsSq = 4.;  //!< regularization term
 
-    /** \private */
+    /** \private TODO */
     void _constructMass(double time);
 
-#ifndef USE_CUDA
-    // --- host (CPU) ---
+    // TODO
     Eigen::Matrix<T, 3, Eigen::Dynamic, Eigen::RowMajor> _centers;
     Eigen::ArrayX<T> _radii;
 
     Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic> _M;
     Eigen::LLT<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>> _factor1, _factor2;
     Eigen::Vector<T, Eigen::Dynamic> _RHS;
-#else
-    // --- device (GPU) ---
-    T *d_cx, *d_cy, *d_cz, *d_r;
-
-    T *d_M1, *d_M2;
-    T *d_RHS;
-#endif
 };
 
 /**

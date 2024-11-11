@@ -7,7 +7,6 @@
 #ifndef FLUID_SOUND_H
 #define FLUID_SOUND_H
 
-
 #include <set>
 
 #include "Integrators.h"

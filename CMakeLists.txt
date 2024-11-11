@@ -1,29 +1,21 @@
 cmake_minimum_required(VERSION 3.16 FATAL_ERROR)
 project(FluidSound LANGUAGES C CXX)
 
-option(FORCE_CPU "Force CPU-only compilation (even if GPU is available)" ON)
-
 find_package(Eigen3 REQUIRED)
-find_package(CUDA)
 
 file(GLOB HEADER_FILES Source/*.h)
 include_directories(Source/)
 
-if (CUDA_FOUND AND NOT FORCE_CPU)
-	message(STATUS "Building for GPU")
-	enable_language(CUDA)
+file(GLOB SRC_FILES Source/*.cpp Source/Integrators/*.cpp)
 
-	file(GLOB SRC_FILES Source/*.cpp Source/Integrators/*.cu)
-	add_executable(${PROJECT_NAME} main.cpp ${SRC_FILES} ${HEADER_FILES})
+# Create executable only if FluidSound is being built as a standalone project 
+if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+	add_executable(runFluidSound main.cpp ${SRC_FILES} ${HEADER_FILES})
+	target_link_libraries(runFluidSound Eigen3::Eigen)
 
-	target_compile_definitions(${PROJECT_NAME} PRIVATE USE_CUDA)
-	target_link_libraries(${PROJECT_NAME} Eigen3::Eigen cublas)
-
+# Otherwise, build FluidSound as a static library
 else ()
-	message(STATUS "Building for CPU")
+	add_library(${PROJECT_NAME} STATIC ${SRC_FILES} ${HEADER_FILES})
+	target_link_libraries(${PROJECT_NAME} PRIVATE Eigen3::Eigen)
 
-	file(GLOB SRC_FILES Source/*.cpp Source/Integrators/*.cpp)
-	add_executable(${PROJECT_NAME} main.cpp ${SRC_FILES} ${HEADER_FILES})
-
-	target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
 endif ()

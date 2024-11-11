@@ -3,8 +3,9 @@
  * \file Oscillator.cpp
  */
 
-#include "Oscillator.h"
+#include <random>
 
+#include "Oscillator.h"
 
 
 namespace FluidSound {

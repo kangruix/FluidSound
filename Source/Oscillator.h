@@ -1,4 +1,4 @@
-/** (c) 2024 Kangrui Xue
+﻿/** (c) 2024 Kangrui Xue
  *
  * \file Oscillator.h
  * \brief
@@ -7,8 +7,6 @@
 #ifndef _FS_OSCILLATOR_H
 #define _FS_OSCILLATOR_H
 
-
-#include <random>
 #include <Eigen/Dense>
 
 #include "BubbleUtils.h"
@@ -18,7 +16,7 @@ namespace FluidSound {
 
 /**
  * \class Oscillator
- * \brief
+ * \brief 
  */
 template <typename T>
 struct Oscillator
@@ -36,12 +34,12 @@ struct Oscillator
     std::vector<double> solveTimes;
     Eigen::Array<T, 6, Eigen::Dynamic> solveData;
     /* For times (0, ..., N), solveData is given by:
-     *  [ radius(0) ... radius(N) ]
-     *  [ wfreq(0)  ... wfreq(N)  ]
-     *  [ x(0)      ... x(N)      ]
-     *  [ y(0)      ... y(N)      ]
-     *  [ z(0)      ... z(N)      ]
-     *  [ 2*beta(0) ... 2*beta(N) ]
+     *  [ r(0)  ... r(N)  ]
+     *  [ w0(0) ... w0(N) ]
+     *  [ x(0)  ... x(N)  ]
+     *  [ y(0)  ... y(N)  ]
+     *  [ z(0)  ... z(N)  ]
+     *  [ 2β(0) ... 2β(N) ]
      */
 
     /** \brief Returns array of linearly interpolated solve data at specified time */
@@ -65,7 +63,7 @@ struct Oscillator
 
     Eigen::Array<T, 3, Eigen::Dynamic> forceData;
     /* For times (0, ..., F), forceData is given by:
-     *  [ startTime(0) ... startTime(F) ]
+     *  [ forceTime(0) ... forceTime(F) ]
      *  [ cutoff(0)    ... cutoff(F)    ]
      *  [ weight(0)    ... weight(F)    ]
      * 

@@ -17,7 +17,7 @@ Building is handled by CMake. For example, to build from source on Mac & Linux:
 
 We provide an example scene in Scenes/GlassPour/. To run the code:
 
-    ./FluidSound ../Scenes/GlassPour/trackedBubInfo.txt 48000 1
+    ./runFluidSound ../Scenes/GlassPour/trackedBubInfo.txt 48000 1
     python ../scripts/write_wav.py output.txt 48000 
 
 Afterwards, the simulated audio will be written to 'output.wav'. More scenes are available [here](https://graphics.stanford.edu/projects/waveblender/dataset/index.html).

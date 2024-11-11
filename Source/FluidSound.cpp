@@ -91,7 +91,7 @@ T Solver<T>::step()
     size_t N_total = total_osc.size();
 
     if (N_total == 0) { return 0.; }
-    if (N_total > 1024) { throw std::runtime_error("Too many bubbles for coupling!"); }
+    //if (N_total > 1024) { throw std::runtime_error("Too many bubbles for coupling!"); }
 
 
     _integrator->step(time);
@@ -118,39 +118,40 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
     _oscillators.clear();
     std::set<double> eventTimesSet;
     
-    std::set<int> used;
+    std::set<int> usedBubIDs;
     for (const std::pair<int, Bubble<T>>& bubPair : bubMap)
     {
         // Skip if bubble has already been used
-        if (used.count(bubPair.first)) continue;
+        if (usedBubIDs.count(bubPair.first)) continue;
         
         int curBubID = bubPair.first;
-        const Bubble<T> * curBub = &bubPair.second;
+        const Bubble<T>* curBub = &bubPair.second;
 
+        // Initialize Oscillator -- we will set its data as we go 
         Oscillator<T> osc;
         osc.startTime = curBub->startTime;
 
+        // Temporary buffers for solve data and force data
         std::vector<double> solveTimes;
-        std::vector<T> radii, wfreqs, x, y, z, Cvals;
-        std::vector<T> forceTimes, cutoffs, weights;
+        std::vector<T> s_radii, s_w0, s_x, s_y, s_z;
+        std::vector<T> Cvals;   // precomputed damping coefficient
+        std::vector<T> forceTimes, f_cutoffs, f_weights;
 
-        double prevStartTime = -1.;
         while (true)
         {
             bool lastBub = true;
-            used.insert(curBubID);
+            usedBubIDs.insert(curBubID);
             
             // Add the solve data for this bubble (if there is any)
             solveTimes.insert(solveTimes.end(), curBub->solveTimes.begin(), curBub->solveTimes.end());
-            radii.insert(radii.end(), curBub->solveTimes.size(), curBub->radius);
-            wfreqs.insert(wfreqs.end(), curBub->wfreqs.begin(), curBub->wfreqs.end());
-            x.insert(x.end(), curBub->x.begin(), curBub->x.end());
-            y.insert(y.end(), curBub->y.begin(), curBub->y.end());
-            z.insert(z.end(), curBub->z.begin(), curBub->z.end());
+            s_radii.insert(s_radii.end(), curBub->solveTimes.size(), curBub->radius);
+            s_w0.insert(s_w0.end(), curBub->w0.begin(), curBub->w0.end());
+            s_x.insert(s_x.end(), curBub->x.begin(), curBub->x.end());
+            s_y.insert(s_y.end(), curBub->y.begin(), curBub->y.end());
+            s_z.insert(s_z.end(), curBub->z.begin(), curBub->z.end());
 
             osc.bubIDs.push_back(curBubID);
             
-
             // ----- Handle bubble start event: forcing logic -----
             std::pair<T, T> force(0., 0.);
 
@@ -210,8 +211,8 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
                 force = Oscillator<T>::CzerskiJetForcing(curBub->radius);
             }
             forceTimes.push_back(curBub->startTime);
-            cutoffs.push_back(force.first);
-            weights.push_back(force.second);
+            f_cutoffs.push_back(force.first);
+            f_weights.push_back(force.second);
 
 
             // ----- Handle bubble end event: chaining logic -----
@@ -238,7 +239,7 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
                 // Continue this bubble to the largest child bubble where this is the largest parent
                 for (auto &child : children)
                 {
-                    if (used.count(child.second)) continue;
+                    if (usedBubIDs.count(child.second)) continue;
                     
                     int largestParent = BubbleUtils<T>::largestBubbleID(bubMap.at(child.second).prevBubIDs, bubMap);
                     if (largestParent == curBubID)
@@ -258,31 +259,30 @@ void Solver<T>::_makeOscillators(const std::map<int, Bubble<T>> &bubMap)
         // Filter out if there is not enough solve data
         if (solveTimes.size() < 1) { continue; }
         // Filter out high freqency Oscillators
-        if (*std::max_element(wfreqs.begin(), wfreqs.end()) > 2 * M_PI * 18000.) { continue; }
+        if (*std::max_element(s_w0.begin(), s_w0.end()) > 2 * M_PI * 18000.) { continue; }
         // Filter out short blips
-        if (osc.endTime - osc.startTime < 3 * 2 * M_PI / wfreqs[0]) { continue; }
+        if (osc.endTime - osc.startTime < 3 * 2 * M_PI / s_w0[0]) { continue; }
 
 
         // Transfer solve data from temporary buffers to this Oscillator
         for (int i = 0; i < solveTimes.size(); i++)
         {
-            Cvals.push_back(2. * Oscillator<T>::calcBeta(radii[i], wfreqs[i]));
+            Cvals.push_back(2. * Oscillator<T>::calcBeta(s_radii[i], s_w0[i]));
         }
         osc.solveTimes = solveTimes;
         osc.solveData.resize(6, solveTimes.size());
 
-        osc.solveData.row(0) = Eigen::Map<Eigen::VectorX<T>>(radii.data(), radii.size());
-        osc.solveData.row(1) = Eigen::Map<Eigen::VectorX<T>>(wfreqs.data(), wfreqs.size());
-        osc.solveData.row(2) = Eigen::Map<Eigen::VectorX<T>>(x.data(), x.size());
-        osc.solveData.row(3) = Eigen::Map<Eigen::VectorX<T>>(y.data(), y.size());
-        osc.solveData.row(4) = Eigen::Map<Eigen::VectorX<T>>(z.data(), z.size());
+        osc.solveData.row(0) = Eigen::Map<Eigen::VectorX<T>>(s_radii.data(), s_radii.size());
+        osc.solveData.row(1) = Eigen::Map<Eigen::VectorX<T>>(s_w0.data(), s_w0.size());
+        osc.solveData.row(2) = Eigen::Map<Eigen::VectorX<T>>(s_x.data(), s_x.size());
+        osc.solveData.row(3) = Eigen::Map<Eigen::VectorX<T>>(s_y.data(), s_y.size());
+        osc.solveData.row(4) = Eigen::Map<Eigen::VectorX<T>>(s_z.data(), s_z.size());
         osc.solveData.row(5) = Eigen::Map<Eigen::VectorX<T>>(Cvals.data(), Cvals.size());
-
 
         osc.forceData.resize(3, forceTimes.size());
         osc.forceData.row(0) = Eigen::Map<Eigen::VectorX<T>>(forceTimes.data(), forceTimes.size());
-        osc.forceData.row(1) = Eigen::Map<Eigen::VectorX<T>>(cutoffs.data(), cutoffs.size());
-        osc.forceData.row(2) = Eigen::Map<Eigen::VectorX<T>>(weights.data(), weights.size());
+        osc.forceData.row(1) = Eigen::Map<Eigen::VectorX<T>>(f_cutoffs.data(), f_cutoffs.size());
+        osc.forceData.row(2) = Eigen::Map<Eigen::VectorX<T>>(f_weights.data(), f_weights.size());
 
 
         // Finally, add this Oscillator
