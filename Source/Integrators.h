@@ -91,6 +91,20 @@ public:
     Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& States, double time);
     
 private:
+    using Integrator<T>::_t1;
+    using Integrator<T>::_t2;
+    using Integrator<T>::_N_total;
+    using Integrator<T>::_solveData1;
+    using Integrator<T>::_solveData2;
+    using Integrator<T>::_N_coupled;
+    using Integrator<T>::mass_time;
+    using Integrator<T>::_computeKCF;
+    using Integrator<T>::_Fvals;
+    using Integrator<T>::_Cvals;
+    using Integrator<T>::_Kvals;
+    using Integrator<T>::_Derivs;
+    using Integrator<T>::solve_time;
+
     const T _epsSq = 4.;  //!< regularization term
 
     /** \private TODO */
@@ -113,6 +127,13 @@ template <typename T>
 class Uncoupled : public Integrator<T>
 {
 public:
+    using Integrator<T>::_N_total;
+    using Integrator<T>::_computeKCF;
+    using Integrator<T>::_Fvals;
+    using Integrator<T>::_Cvals;
+    using Integrator<T>::_Kvals;
+    using Integrator<T>::_Derivs;
+    using Integrator<T>::solve_time;
     Uncoupled(double dt) : Integrator<T>(dt) { }
     
     void refactor() { }     // dummy function call
