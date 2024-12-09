@@ -127,6 +127,12 @@ template <typename T>
 class Uncoupled : public Integrator<T>
 {
 public:
+    Uncoupled(double dt) : Integrator<T>(dt) { }
+    
+    void refactor() { }     // dummy function call
+    Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time);
+
+private:
     using Integrator<T>::_N_total;
     using Integrator<T>::_computeKCF;
     using Integrator<T>::_Fvals;
@@ -134,10 +140,6 @@ public:
     using Integrator<T>::_Kvals;
     using Integrator<T>::_Derivs;
     using Integrator<T>::solve_time;
-    Uncoupled(double dt) : Integrator<T>(dt) { }
-    
-    void refactor() { }     // dummy function call
-    Eigen::ArrayX<T> solve(const Eigen::ArrayX<T>& State, double time);
 };
 
 } // namespace FluidSound
