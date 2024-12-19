@@ -22,7 +22,7 @@ We provide an example scene in Scenes/GlassPour/. To run the code:
     ./runFluidSound ../Scenes/GlassPour/trackedBubInfo.txt 48000 1
     python ../scripts/write_wav.py output.txt 48000 
 
-(where the 1 indicates the scheme: 0 - uncoupled, 1 - coupled). Afterwards, the simulated audio will be written to 'output.wav'. More scenes are available [here](https://graphics.stanford.edu/projects/waveblender/dataset/index.html).
+(where the 1 indicates the scheme: 0 - uncoupled, 1 - coupled). Afterwards, the simulated audio will be written to 'output.wav'. More scenes are available [here](https://graphics.stanford.edu/papers/waveblender/dataset/index.html).
 
 ### Miscellaneous
 
